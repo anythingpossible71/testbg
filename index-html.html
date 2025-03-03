@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shareable Backgammon</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <div id="canvas-container"></div>
+        
+        <div id="ui-container">
+            <!-- Create Game UI -->
+            <div id="create-game-ui" class="game-ui">
+                <h2>Create a New Backgammon Game</h2>
+                <div class="form-group">
+                    <label for="player-name-input">Your Name:</label>
+                    <input type="text" id="player-name-input" value="Player 1">
+                </div>
+                <button id="create-game-button" class="primary-button">Create New Game</button>
+            </div>
+            
+            <!-- Join Game UI -->
+            <div id="join-game-ui" class="game-ui hidden">
+                <h2>Join Backgammon Game</h2>
+                <div class="form-group">
+                    <label for="join-name-input">Your Name:</label>
+                    <input type="text" id="join-name-input" value="Player 2">
+                </div>
+                <button id="join-game-button" class="primary-button">Join Game</button>
+                
+                <div class="form-group">
+                    <label for="game-url">Game URL:</label>
+                    <div class="url-container">
+                        <input type="text" id="game-url" readonly>
+                        <button id="copy-url-button">Copy</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Game Controls UI -->
+            <div id="game-controls-ui" class="game-ui hidden">
+                <div id="player-info">
+                    <div class="player-card" id="player1-card">
+                        <h3 id="player1-name">Player 1 (White)</h3>
+                        <p>Bar: <span id="player1-bar">0</span></p>
+                        <p>Off: <span id="player1-off">0</span></p>
+                    </div>
+                    
+                    <div class="dice-container">
+                        <div class="dice" id="dice1">-</div>
+                        <div class="dice" id="dice2">-</div>
+                        <button id="roll-button" class="primary-button">Roll Dice</button>
+                    </div>
+                    
+                    <div class="player-card" id="player2-card">
+                        <h3 id="player2-name">Player 2 (Black)</h3>
+                        <p>Bar: <span id="player2-bar">0</span></p>
+                        <p>Off: <span id="player2-off">0</span></p>
+                    </div>
+                </div>
+                
+                <div id="game-status">Waiting for opponent...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="firebase-config.js"></script>
+    <script src="game-board.js"></script>
+    <script src="game-logic.js"></script>
+    <script src="ui-controls.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
