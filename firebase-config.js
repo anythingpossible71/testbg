@@ -10,8 +10,8 @@ const firebaseConfig = {
     appId: "YOUR_APP_ID"
 };
 
-// Initialize Firebase
-// Comment out until you add your own configuration
+// For now, we'll skip actual Firebase initialization
+// Uncomment this when you add your own Firebase config
 // firebase.initializeApp(firebaseConfig);
 // const database = firebase.database();
 
@@ -22,7 +22,10 @@ function generateUniqueId() {
 
 // Save game state to Firebase
 function saveGameState() {
-    // Comment out until Firebase is configured
+    // For now, just log that we would be saving
+    console.log("Would save game state");
+    
+    // Uncomment when Firebase is configured
     /*
     if (!gameId) return;
     
@@ -35,17 +38,16 @@ function saveGameState() {
         currentPlayer: currentPlayer,
         dice: dice,
         gameStatus: gameStatus,
+        hostName: hostName,
+        guestName: guestName,
         timestamp: firebase.database.ServerValue.TIMESTAMP
     });
     */
-    
-    // For now, just log that we would be saving
-    console.log("Would save game state to Firebase");
 }
 
 // Listen for game state changes
 function listenForGameChanges(gameId) {
-    // Comment out until Firebase is configured
+    // Uncomment when Firebase is configured
     /*
     firebase.database().ref('games/' + gameId).on('value', (snapshot) => {
         const gameData = snapshot.val();
@@ -61,6 +63,8 @@ function listenForGameChanges(gameId) {
         dice = gameData.dice || [];
         diceRolled = dice.length > 0;
         gameStatus = gameData.gameStatus;
+        hostName = gameData.hostName;
+        guestName = gameData.guestName;
         
         // Update UI
         updatePlayerInfo();
