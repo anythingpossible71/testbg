@@ -101,5 +101,28 @@ window.onload = function() {
     });
 };
 
+
+// Add this to main.js if needed
+function setupUIControls() {
+    console.log("setupUIControls function called");
+    
+    // Create Game button
+    document.getElementById('create-game-button').addEventListener('click', createNewGame);
+    
+    // Join Game button
+    document.getElementById('join-game-button').addEventListener('click', joinGame);
+    
+    // Roll Dice button
+    document.getElementById('roll-button').addEventListener('click', rollDice);
+    
+    // Copy URL button
+    document.getElementById('copy-url-button').addEventListener('click', copyGameUrl);
+    
+    // Initially hide certain UI elements
+    document.getElementById('join-game-ui').style.display = 'none';
+    document.getElementById('game-controls-ui').style.display = 'none';
+}
+These steps should help us identify why setupUIControls isn't being recognized and provide a workaround to get your game working.RetryClaude can make mistakes. Please double-check responses.
+
 // For demonstration purposes, log some debug info
 console.log("Backgammon game initialized");
