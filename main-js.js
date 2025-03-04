@@ -1,5 +1,13 @@
 // Main application code
 
+console.log("Main.js loaded");
+
+// Add this at the beginning of your setup function
+function setup() {
+  console.log("Setup function called");
+  // rest of your setup code...
+}
+
 // p5.js setup
 function setup() {
     // Create canvas and append to container
