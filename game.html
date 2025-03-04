@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backgammon Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        #game-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        #canvas-container {
+            margin: 0 auto;
+            background-color: #6d4c41;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #player-join {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        #game-controls {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .player-card {
+            width: 30%;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            text-align: center;
+        }
+        .player-card.active {
+            background-color: #e8f5e9;
+            border: 2px solid #4CAF50;
+        }
+        .dice-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        .dice {
+            width: 50px;
+            height: 50px;
+            margin: 5px;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        #game-status {
+            padding: 10px;
+            text-align: center;
+            font-size: 18px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        input {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
+</head>
+<body>
+    <div id="game-container">
+        <div id="player-join">
+            <h2 id="join-title">Join Backgammon Game</h2>
+            <div id="waiting-message" class="hidden">
+                <p>Waiting for Player 2 to join...</p>
+                <p>Share this link with your opponent:</p>
+                <div id="share-url" style="padding: 10px; background-color: #f0f0f0; margin-bottom: 15px;"></div>
+                <button id="copy-link-button">Copy Link</button>
+            </div>
+            <div id="name-entry">
+                <p id="join-message">Enter your name to join this game:</p>
+                <input type="text" id="player-name-input" placeholder="Your name">
+                <button id="join-button">Join Game</button>
+            </div>
+        </div>
+        
+        <div id="canvas-container"></div>
+        
+        <div id="game-controls" class="hidden">
+            <div class="player-info">
+                <div class="player-card" id="player1-card">
+                    <h3 id="player1-name">Player 1</h3>
+                    <p>Bar: <span id="player1-bar">0</span></p>
+                    <p>Off: <span id="player1-off">0</span></p>
+                </div>
+                
+                <div class="controls">
+                    <div class="dice-container">
+                        <div class="dice" id="dice1">-</div>
+                        <div class="dice" id="dice2">-</div>
+                    </div>
+                    <button id="roll-button" disabled>Roll Dice</button>
+                </div>
+                
+                <div class="player-card" id="player2-card">
+                    <h3 id="player2-name">Player 2</h3>
+                    <p>Bar: <span id="player2-bar">0</span></p>
+                    <p>Off: <span id="player2-off">0</span></p>
+                </div>
+            </div>
+            
+            <div id="game-status">Waiting for players...</div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameId = null;
+        let playerRole = "spectator"; // Can be "player1", "player2", or "spectator"
+        let player1Name = "Player 1";
+        let player2Name = "Player 2";
+        let gameStarted = false;
+        
+        // Parse URL parameters
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                gameId: params.get('gameId'),
+                playerNum: params.get('playerNum'),
+                playerName: params.get('playerName')
+            };
+        }
+        
+        // Initialize from URL parameters
+        function initFromUrl() {
+            const params = getUrlParams();
+            
+            if (params.gameId) {
+                gameId = params.gameId;
+                
+                // Set share URL
+                const baseUrl = window.location.origin + window.location.pathname;
+                const shareUrl = `${baseUrl}?gameId=${gameId}&playerNum=2`;
+                document.getElementById('share-url').textContent = shareUrl;
+                
+                // Handle player joining from URL
+                if (params.playerNum && params.playerName) {
+                    const playerNum = parseInt(params.playerNum);
+                    const playerName = decodeURIComponent(params.playerName);
+                    
+                    if (playerNum === 1) {
+                        // Player 1 is joining
+                        player1Name = playerName;
+                        playerRole = "player1";
+                        
+                        // Update UI to show waiting for player 2
+                        document.getElementById('player-join').classList.remove('hidden');
+                        document.getElementById('name-entry').classList.add('hidden');
+                        document.getElementById('waiting-message').classList.remove('hidden');
+                        document.getElementById('join-title').textContent = `Welcome, ${playerName}!`;
+                        
+                        // Update player1 card
+                        document.getElementById('player1-name').textContent = playerName;
+                        document.getElementById('player1-card').classList.add('active');
+                    } 
+                    else if (playerNum === 2) {
+                        // Player 2 is joining
+                        player2Name = playerName;
+                        playerRole = "player2";
+                        
+                        // Hide join UI and show game controls
+                        document.getElementById('player-join').classList.add('hidden');
+                        document.getElementById('game-controls').classList.remove('hidden');
+                        
+                        // Update player2 card
+                        document.getElementById('player2-name').textContent = playerName;
+                        
+                        // Start game
+                        startGame();
+                    }
+                } else {
+                    // No player info, show join UI
+                    document.getElementById('player-join').classList.remove('hidden');
+                    document.getElementById('join-message').textContent = 'Enter your name to join this game:';
+                }
+            } else {
+                // No game ID, redirect to index page
+                window.location.href = 'index.html';
+            }
+        }
+        
+        // Join button handler
+        document.getElementById('join-button').addEventListener('click', function() {
+            const playerName = document.getElementById('player-name-input').value.trim();
+            if (!playerName) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            // Determine if this is player 1 or player 2
+            if (!player1Name || player1Name === "Player 1") {
+                // This is player 1
+                player1Name = playerName;
+                playerRole = "player1";
+                
+                // Update URL
+                const newUrl = `${window.location.pathname}?gameId=${gameId}&playerNum=1&playerName=${encodeURIComponent(playerName)}`;
+                window.history.pushState({}, '', newUrl);
+                
+                // Update UI to show waiting for player 2
+                document.getElementById('name-entry').classList.add('hidden');
+                document.getElementById('waiting-message').classList.remove('hidden');
+                document.getElementById('join-title').textContent = `Welcome, ${playerName}!`;
+                
+                // Update share URL for player 2
+                const baseUrl = window.location.origin + window.location.pathname;
+                const shareUrl = `${baseUrl}?gameId=${gameId}&playerNum=2`;
+                document.getElementById('share-url').textContent = shareUrl;
+                
+                // Update player1 card
+                document.getElementById('player1-name').textContent = playerName;
+            } 
+            else {
+                // This is player 2
+                player2Name = playerName;
+                playerRole = "player2";
+                
+                // Update URL
+                const newUrl = `${window.location.pathname}?gameId=${gameId}&playerNum=2&playerName=${encodeURIComponent(playerName)}`;
+                window.history.pushState({}, '', newUrl);
+                
+                // Hide join UI and show game controls
+                document.getElementById('player-join').classList.add('hidden');
+                document.getElementById('game-controls').classList.remove('hidden');
+                
+                // Update player2 card
+                document.getElementById('player2-name').textContent = playerName;
+                
+                // Start game
+                startGame();
+            }
+        });
+        
+        // Copy link button handler
+        document.getElementById('copy-link-button').addEventListener('click', function() {
+            const shareUrl = document.getElementById('share-url').textContent;
+            
+            const tempInput = document.createElement('input');
+            tempInput.value = shareUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            
+            const button = this;
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            setTimeout(() => {
+                button.textContent = originalText;
+            }, 2000);
+        });
+        
+        // Start the game
+        function startGame() {
+            gameStarted = true;
+            document.getElementById('game-status').textContent = 'Game started! Player 1 to roll.';
+            document.getElementById('roll-button').disabled = false;
+            
+            // Enable roll button only for player 1 initially
+            if (playerRole === "player1") {
+                document.getElementById('roll-button').disabled = false;
+            } else {
+                document.getElementById('roll-button').disabled = true;
+            }
+        }
+        
+        // Initialize on page load
+        window.onload = function() {
+            initFromUrl();
+        };
+        
+        // In a real implementation, you would load your backgammon game JS here
+        // This is a placeholder for connecting to the rest of your game code
+        function loadGameCode() {
+            // Load your existing game code
+            // This would include:
+            // - Board rendering
+            // - Game logic
+            // - Dice rolling
+            // - Move validation
+            // - etc.
+        }
+    </script>
+    
+    <!-- Your existing backgammon game code would be loaded here -->
+    <script src="backgammon.js"></script>
+</body>
+</html>
