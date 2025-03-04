@@ -122,7 +122,6 @@ function setupUIControls() {
     document.getElementById('join-game-ui').style.display = 'none';
     document.getElementById('game-controls-ui').style.display = 'none';
 }
-These steps should help us identify why setupUIControls isn't being recognized and provide a workaround to get your game working.RetryClaude can make mistakes. Please double-check responses.
 
 // For demonstration purposes, log some debug info
 console.log("Backgammon game initialized");
