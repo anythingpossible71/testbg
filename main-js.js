@@ -1,6 +1,8 @@
 // Main application code
 
-console.log("Main.js loaded");
+(function() {
+  console.log("Main.js self-executing function ran");
+})();
 
 // Add this at the beginning of your setup function
 function setup() {
