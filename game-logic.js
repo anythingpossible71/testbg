@@ -287,6 +287,11 @@ function mouseReleased() {
         
         // Save game state after move
         saveGameState();
+        
+        // Update UI
+        updateDiceDisplay();
+        updatePlayerInfo();
+        updateGameStatus();
     }
     
     selectedChecker = null;
@@ -324,6 +329,7 @@ function rollDice() {
     // Check if there are legal moves
     if (!hasLegalMoves()) {
         gameStatus = "No legal moves available. Switching players...";
+        updateGameStatus();
         
         // Auto switch player after short delay
         setTimeout(() => {
@@ -343,6 +349,7 @@ function switchPlayer() {
     
     updateGameStatus();
     updatePlayerInfo();
+    updateDiceDisplay();
 }
 
 function calculateValidMoves(pointIndex, dice) {
