@@ -317,11 +317,6 @@ function drawValidMoves() {
     }
 }
 
-function drawUI() {
-    // Most UI is done through HTML, this is for any canvas-specific UI elements
-    // For now, we keep it empty since we're using HTML for the game controls
-}
-
 // Helper functions for board positions
 function getPointX(pointIndex) {
     const boardOffset = BEAR_OFF_WIDTH;
