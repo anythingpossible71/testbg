@@ -697,6 +697,29 @@
             debugLog("Window loaded, initializing game...");
             initFromUrl();
         };
+
+
+(function() {
+    console.log("Loading backgammon infinite loop protections...");
+    
+    // -------------------------------
+    // Global performance safeguards
+    // -------------------------------
+    
+    // Prevent too many redraws
+    const MAX_FPS = 30;
+    let lastFrameTime = 0;
+    
+    // Store original draw function
+    if (typeof window.draw === 'function' && !window.originalDraw) {
+        window.originalDraw = window.draw;
+        
+        // Replace with rate-limited version
+        window.draw = function() {
+            const now = performance.now();
+            if (now - lastFram
+
+        
     </script>
 </body>
 </html>
