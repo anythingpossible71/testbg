@@ -226,6 +226,12 @@ function initFromUrl() {
 
 // In the join-button handler, make sure Player 2 role is properly set
 document.getElementById('join-button').addEventListener('click', function() {
+   
+   
+    player1Name = playerName; // Make sure this is happening
+    console.log("Set player1Name to:", player1Name);
+
+
     const playerName = document.getElementById('player-name-input').value.trim();
     if (!playerName) {
         alert('Please enter your name');
