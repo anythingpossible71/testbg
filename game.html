@@ -185,164 +185,82 @@
         }
         
         // Initialize from URL parameters
-        function initFromUrl() {
-            const params = getUrlParams();
+       // In the initFromUrl function, make sure we're properly handling playerNum=2
+function initFromUrl() {
+    const params = getUrlParams();
+    
+    if (params.gameId) {
+        gameId = params.gameId;
+        
+        if (params.playerNum === '2') {
+            // This is a player 2 URL - ALWAYS show name entry form
+            document.getElementById('player-join').classList.remove('hidden');
+            document.getElementById('waiting-message').classList.add('hidden');
+            document.getElementById('name-entry').classList.remove('hidden');
+            document.getElementById('join-title').textContent = 'Join as Player 2';
+            document.getElementById('join-message').textContent = 'Enter your name to join this game:';
+        } 
+        else if (params.playerNum === '1' && params.playerName) {
+            // Player 1 with name - show waiting screen
+            player1Name = decodeURIComponent(params.playerName);
+            playerRole = "player1";
             
-            if (params.gameId) {
-                gameId = params.gameId;
-                
-                // Always calculate the share URL for player 2
-                const baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = `${baseUrl}?gameId=${gameId}&playerNum=2`;
-                document.getElementById('share-url').textContent = shareUrl;
-                
-                // Handle player joining from URL
-                if (params.playerNum && params.playerName) {
-                    const playerNum = parseInt(params.playerNum);
-                    const playerName = decodeURIComponent(params.playerName);
-                    
-                    if (playerNum === 1) {
-                        // Player 1 is joining
-                        player1Name = playerName;
-                        playerRole = "player1";
-                        
-                        // Update UI to show waiting for player 2
-                        document.getElementById('player-join').classList.remove('hidden');
-                        document.getElementById('name-entry').classList.add('hidden');
-                        document.getElementById('waiting-message').classList.remove('hidden');
-                        document.getElementById('join-title').textContent = `Welcome, ${playerName}!`;
-                        
-                        // Update player1 card
-                        document.getElementById('player1-name').textContent = playerName;
-                        document.getElementById('player1-card').classList.add('active');
-                        
-                        // Save initial game state to Firebase
-                        saveGameState();
-                    } 
-                    else if (playerNum === 2) {
-                        // Player 2 is joining with name
-                        player2Name = playerName;
-                        playerRole = "player2";
-                        
-                        // Hide join UI and show game controls
-                        document.getElementById('player-join').classList.add('hidden');
-                        document.getElementById('game-controls').classList.remove('hidden');
-                        
-                        // Update player2 card
-                        document.getElementById('player2-name').textContent = playerName;
-                        
-                        // Start game
-                        startGame();
-                        
-                        // Save updated game state to Firebase
-                        saveGameState();
-                    }
-                } else if (params.playerNum === '2') {
-                    // Player 2 is joining - always show name entry form
-                    document.getElementById('player-join').classList.remove('hidden');
-                    document.getElementById('waiting-message').classList.add('hidden');
-                    document.getElementById('name-entry').classList.remove('hidden');
-                    document.getElementById('join-title').textContent = 'Join as Player 2';
-                    document.getElementById('join-message').textContent = 'Enter your name to join this game:';
-                    
-                    // Fetch existing game data from Firebase
-                    loadGameState();
-                } else {
-                    // No player info, show join UI
-                    document.getElementById('player-join').classList.remove('hidden');
-                    document.getElementById('join-message').textContent = 'Enter your name to join this game:';
-                    
-                    // Fetch existing game data from Firebase
-                    loadGameState();
-                }
-                
-                // Set up Firebase listener for real-time updates
-                listenForGameChanges(gameId);
-            } else {
-                // No game ID, redirect to index page
-                window.location.href = 'index.html';
-            }
+            document.getElementById('player-join').classList.remove('hidden');
+            document.getElementById('name-entry').classList.add('hidden');
+            document.getElementById('waiting-message').classList.remove('hidden');
+            document.getElementById('join-title').textContent = `Welcome, ${player1Name}!`;
+            
+            // Set player1 name in card
+            document.getElementById('player1-name').textContent = player1Name;
         }
         
-        // Join button handler
-        document.getElementById('join-button').addEventListener('click', function() {
-            const playerName = document.getElementById('player-name-input').value.trim();
-            if (!playerName) {
-                alert('Please enter your name');
-                return;
-            }
-            
-            const params = getUrlParams();
-            
-            // Determine if this is player 1 or player 2
-            if (params.playerNum === '2' || window.location.href.includes('playerNum=2')) {
-                // This is player 2
-                player2Name = playerName;
-                playerRole = "player2";
-                
-                // Update URL
-                const newUrl = `${window.location.pathname}?gameId=${gameId}&playerNum=2&playerName=${encodeURIComponent(playerName)}`;
-                window.history.pushState({}, '', newUrl);
-                
-                // Hide join UI and show game controls
-                document.getElementById('player-join').classList.add('hidden');
-                document.getElementById('game-controls').classList.remove('hidden');
-                
-                // Update player2 card
-                document.getElementById('player2-name').textContent = playerName;
-                
-                // Start game
-                startGame();
-                
-                // Save game state with player 2 info
-                saveGameState();
-            } 
-            else {
-                // This is player 1
-                player1Name = playerName;
-                playerRole = "player1";
-                
-                // Update URL
-                const newUrl = `${window.location.pathname}?gameId=${gameId}&playerNum=1&playerName=${encodeURIComponent(playerName)}`;
-                window.history.pushState({}, '', newUrl);
-                
-                // Update UI to show waiting for player 2
-                document.getElementById('name-entry').classList.add('hidden');
-                document.getElementById('waiting-message').classList.remove('hidden');
-                document.getElementById('join-title').textContent = `Welcome, ${playerName}!`;
-                
-                // Update share URL for player 2
-                const baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = `${baseUrl}?gameId=${gameId}&playerNum=2`;
-                document.getElementById('share-url').textContent = shareUrl;
-                
-                // Update player1 card
-                document.getElementById('player1-name').textContent = playerName;
-                document.getElementById('player1-card').classList.add('active');
-                
-                // Save initial game state to Firebase
-                saveGameState();
-            }
-        });
+        // Create share URL for player 2 (without player 1's name)
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareUrl = `${baseUrl}?gameId=${gameId}&playerNum=2`;
+        document.getElementById('share-url').textContent = shareUrl;
         
-        // Copy link button handler
-        document.getElementById('copy-link-button').addEventListener('click', function() {
-            const shareUrl = document.getElementById('share-url').textContent;
-            
-            const tempInput = document.createElement('input');
-            tempInput.value = shareUrl;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
-            
-            const button = this;
-            const originalText = button.textContent;
-            button.textContent = 'Copied!';
-            setTimeout(() => {
-                button.textContent = originalText;
-            }, 2000);
-        });
+        // Setup Firebase listener
+        listenForGameChanges(gameId);
+    }
+}
+
+// In the join-button handler, make sure Player 2 role is properly set
+document.getElementById('join-button').addEventListener('click', function() {
+    const playerName = document.getElementById('player-name-input').value.trim();
+    if (!playerName) {
+        alert('Please enter your name');
+        return;
+    }
+    
+    // Determine if this is player 1 or player 2
+    const params = getUrlParams();
+    
+    if (params.playerNum === '2') {
+        console.log("Joining as Player 2");
+        // This is player 2
+        player2Name = playerName;
+        playerRole = "player2";
+        
+        // Hide join UI and show game controls
+        document.getElementById('player-join').classList.add('hidden');
+        document.getElementById('game-controls').classList.remove('hidden');
+        
+        // Update player2 card
+        document.getElementById('player2-name').textContent = playerName;
+        document.getElementById('player2-card').classList.add('active');
+        
+        // Start game
+        startGame();
+        
+        // Save game state with player 2 info
+        saveGameState();
+    } 
+    else {
+        console.log("Joining as Player 1");
+        // Player 1 logic
+        // ...
+    }
+});
         
         // Start the game
         function startGame() {
