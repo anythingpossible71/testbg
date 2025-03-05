@@ -10,24 +10,25 @@ const firebaseConfig = {
     appId: "YOUR_APP_ID"
 };
 
-// Initialize Firebase - Uncomment when you add your Firebase configuration
-// firebase.initializeApp(firebaseConfig);
-// const database = firebase.database();
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-// Generate a unique game ID (for demonstration)
+// Generate a unique game ID
 function generateUniqueId() {
     return 'game_' + Math.random().toString(36).substr(2, 9);
 }
 
 // Save game state to Firebase
 function saveGameState() {
-    console.log("Saving game state for game:", gameId);
+    debugLog("Saving game state for game:", gameId);
     
-    // For Firebase implementation, uncomment this when Firebase is configured
-    /*
-    if (!gameId) return;
+    if (!gameId) {
+        debugLog("No game ID, cannot save state");
+        return;
+    }
     
-    firebase.database().ref('games/' + gameId).update({
+    const gameData = {
         board: board,
         whiteBar: whiteBar,
         blackBar: blackBar,
@@ -41,51 +42,74 @@ function saveGameState() {
         player2Name: player2Name,
         gameStarted: gameStarted,
         timestamp: firebase.database.ServerValue.TIMESTAMP
-    });
-    */
+    };
+    
+    debugLog("Saving data:", gameData);
+    
+    firebase.database().ref('games/' + gameId).update(gameData)
+        .then(() => {
+            debugLog("Game state saved successfully");
+        })
+        .catch((error) => {
+            console.error("Error saving game state:", error);
+        });
 }
 
 // Load existing game state from Firebase
 function loadGameState() {
-    console.log("Loading game state for game:", gameId);
+    debugLog("Loading game state for game:", gameId);
     
-    // For Firebase implementation, uncomment this when Firebase is configured
-    /*
-    if (!gameId) return;
+    if (!gameId) {
+        debugLog("No game ID, cannot load state");
+        return;
+    }
     
-    firebase.database().ref('games/' + gameId).once('value').then((snapshot) => {
-        const gameData = snapshot.val();
-        if (!gameData) return;
-        
-        // Update local game state with Firebase data
-        updateGameFromFirebase(gameData);
-    });
-    */
+    firebase.database().ref('games/' + gameId).once('value')
+        .then((snapshot) => {
+            const gameData = snapshot.val();
+            if (!gameData) {
+                debugLog("No game data found for ID:", gameId);
+                return;
+            }
+            
+            debugLog("Loaded game data:", gameData);
+            
+            // Update local game state with Firebase data
+            updateGameFromFirebase(gameData);
+        })
+        .catch((error) => {
+            console.error("Error loading game state:", error);
+        });
 }
 
 // Listen for game state changes
 function listenForGameChanges(gameId) {
-    console.log("Setting up listener for game changes:", gameId);
+    debugLog("Setting up listener for game changes:", gameId);
     
-    // For Firebase implementation, uncomment this when Firebase is configured
-    /*
-    if (!gameId) return;
+    if (!gameId) {
+        debugLog("No game ID, cannot listen for changes");
+        return;
+    }
     
     firebase.database().ref('games/' + gameId).on('value', (snapshot) => {
         const gameData = snapshot.val();
-        if (!gameData) return;
+        if (!gameData) {
+            debugLog("No game data found for ID:", gameId);
+            return;
+        }
         
         // Only update if there's a change and it's not likely from our own action
-        if (gameData.timestamp > window.lastUpdateTimestamp) {
-            console.log("Received updated game state:", gameData);
+        if (gameData.timestamp > window.lastUpdateTimestamp + 100) { // 100ms buffer
+            debugLog("Received updated game state:", gameData);
             
             // Update local game state with Firebase data
             updateGameFromFirebase(gameData);
             
             window.lastUpdateTimestamp = gameData.timestamp;
+        } else {
+            debugLog("Ignoring own update");
         }
     });
-    */
 }
 
 // Update game state from Firebase data
@@ -95,17 +119,21 @@ function updateGameFromFirebase(gameData) {
         player1Name = gameData.player1Name;
         const p1NameEl = document.getElementById('player1-name');
         if (p1NameEl) p1NameEl.textContent = player1Name;
+        debugLog("Updated player1Name:", player1Name);
     }
     
     if (gameData.player2Name) {
         player2Name = gameData.player2Name;
         const p2NameEl = document.getElementById('player2-name');
         if (p2NameEl) p2NameEl.textContent = player2Name;
+        debugLog("Updated player2Name:", player2Name);
     }
     
     // If player 2 joined, update UI accordingly
     if (playerRole === "player1" && gameData.player2Name && 
         gameData.player2Name !== "Player 2") {
+        debugLog("Player 2 has joined, showing game for player 1");
+        
         // Hide waiting message and show game controls
         const playerJoin = document.getElementById('player-join');
         const gameControls = document.getElementById('game-controls');
@@ -115,12 +143,23 @@ function updateGameFromFirebase(gameData) {
         // Start game if not already started
         if (!gameStarted && typeof startGame === 'function') {
             startGame();
+        } else {
+            // Force game state check
+            if (typeof checkAndStartGame === 'function') {
+                checkAndStartGame();
+            }
         }
     }
     
     // If game has started, update game state
     if (gameData.gameStarted) {
-        board = gameData.board;
+        gameStarted = true;
+        
+        // Only update board state if needed
+        const shouldUpdateBoard = JSON.stringify(board) !== JSON.stringify(gameData.board);
+        
+        // Update game state variables
+        board = gameData.board || [];
         whiteBar = gameData.whiteBar || [];
         blackBar = gameData.blackBar || [];
         whiteBearOff = gameData.whiteBearOff || [];
@@ -129,11 +168,29 @@ function updateGameFromFirebase(gameData) {
         dice = gameData.dice || [];
         diceRolled = gameData.diceRolled || false;
         gameStatus = gameData.gameStatus;
-        gameStarted = true;
+        
+        // Debug log for the most critical states
+        debugLog("Updated from Firebase:", {
+            currentPlayer: currentPlayer,
+            diceRolled: diceRolled,
+            dice: dice,
+            gameStatus: gameStatus
+        });
         
         // Update UI elements
         if (typeof updatePlayerInfo === 'function') updatePlayerInfo();
         if (typeof updateDiceDisplay === 'function') updateDiceDisplay();
         if (typeof updateGameStatus === 'function') updateGameStatus();
+        
+        // Check if game should be started
+        if (typeof checkAndStartGame === 'function') {
+            checkAndStartGame();
+        }
     }
 }
+
+// Make these functions globally accessible
+window.saveGameState = saveGameState;
+window.loadGameState = loadGameState;
+window.listenForGameChanges = listenForGameChanges;
+window.updateGameFromFirebase = updateGameFromFirebase;
