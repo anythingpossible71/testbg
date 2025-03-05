@@ -332,3 +332,38 @@ function switchPlayer() {
         saveGameState();
     }
 }
+// Game logic continued
+
+function calculateValidMoves(pointIndex, dice) {
+    validMoves = [];
+    combinedMoves = [];
+    
+    let playerColor = currentPlayer === 'player1' ? 'white' : 'black';
+    let direction = currentPlayer === 'player1' ? 1 : -1;
+    
+    // Handle moves from the bar
+    if ((playerColor === 'white' && whiteBar.length > 0) || 
+        (playerColor === 'black' && blackBar.length > 0)) {
+        
+        if (pointIndex !== -1) {
+            return;
+        } else {
+            for (let i = 0; i < dice.length; i++) {
+                let die = dice[i];
+                let entryPoint;
+                
+                if (playerColor === 'white') {
+                    entryPoint = die - 1;
+                } else {
+                    entryPoint = 24 - die;
+                }
+                
+                if (entryPoint >= 0 && entryPoint < 24) {
+                    if (board[entryPoint].length === 0 || 
+                        board[entryPoint][0].color === playerColor ||
+                        (board[entryPoint].length === 1 && board[entryPoint][0].color !== playerColor)) {
+                        validMoves.push(entryPoint);
+                    }
+                }
+            }
+        }
