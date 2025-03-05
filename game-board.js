@@ -1,5 +1,5 @@
-// game-board.js
-// Complete implementation with performance optimizations and error prevention
+// game-board.js - Complete implementation
+// This file handles drawing the game board and visual elements
 
 // Game configurations - using var to avoid redeclaration errors
 if (typeof BOARD_WIDTH === 'undefined') var BOARD_WIDTH = 800;
@@ -14,9 +14,14 @@ if (typeof BEAR_OFF_WIDTH === 'undefined') var BEAR_OFF_WIDTH = 80;
 let lastDrawTime = 0;
 const FRAME_RATE_LIMIT = 30; // Limit to 30 FPS to reduce CPU usage
 let gameInitialized = false;
+let lastDebugTime = 0;
 
-// Safe console logging
+// Safe debug logging to prevent console flooding
 function safeDebugLog(message, data) {
+    const now = performance.now();
+    if (now - lastDebugTime < 500) return; // Limit to 2 logs per second
+    
+    lastDebugTime = now;
     if (typeof debugLog === 'function') {
         debugLog(message, data);
     } else {
@@ -125,7 +130,6 @@ function drawCheckers() {
     try {
         // Safety check
         if (!board || !Array.isArray(board) || board.length === 0) {
-            safeDebugLog("No valid board data to draw checkers");
             return;
         }
         
@@ -384,7 +388,7 @@ function getPointX(pointIndex) {
         }
     } catch (error) {
         console.error("Error in getPointX:", error);
-        return BOARD_WIDTH / 2; // Return center X if error
+        return BOARD_WIDTH / 2 + BEAR_OFF_WIDTH; // Return center X if error
     }
 }
 
@@ -436,17 +440,73 @@ function checkAndStartGame() {
             const gameStatusEl = document.getElementById('game-status');
             if (gameStatusEl) gameStatusEl.textContent = player1Name + "'s turn to roll";
             
-            // Update other UI elements
-            if (typeof updatePlayerInfo === 'function') updatePlayerInfo();
-            if (typeof updateDiceDisplay === 'function') updateDiceDisplay();
+            // Update other UI elements without using functions that might cause loops
+            updateUIDirectly();
             
-            // Save game state
-            if (typeof saveGameState === 'function') {
-                saveGameState();
-            }
+            // Save game state after a delay
+            setTimeout(() => {
+                if (typeof saveGameState === 'function') {
+                    saveGameState();
+                }
+            }, 500);
         }
     } catch (error) {
         console.error("Error in checkAndStartGame:", error);
+    }
+}
+
+// Update UI elements directly without causing loops
+function updateUIDirectly() {
+    try {
+        // Update player info
+        const player1Bar = document.getElementById('player1-bar');
+        const player1Off = document.getElementById('player1-off');
+        const player2Bar = document.getElementById('player2-bar');
+        const player2Off = document.getElementById('player2-off');
+        const player1Card = document.getElementById('player1-card');
+        const player2Card = document.getElementById('player2-card');
+        const gameStatusEl = document.getElementById('game-status');
+        const rollButton = document.getElementById('roll-button');
+        const dice1El = document.getElementById('dice1');
+        const dice2El = document.getElementById('dice2');
+        
+        // Update bar and off counts
+        if (player1Bar) player1Bar.textContent = whiteBar ? whiteBar.length : 0;
+        if (player1Off) player1Off.textContent = whiteBearOff ? whiteBearOff.length : 0;
+        if (player2Bar) player2Bar.textContent = blackBar ? blackBar.length : 0;
+        if (player2Off) player2Off.textContent = blackBearOff ? blackBearOff.length : 0;
+        
+        // Highlight active player
+        if (player1Card && player2Card) {
+            if (currentPlayer === 'player1') {
+                player1Card.classList.add('active');
+                player2Card.classList.remove('active');
+            } else {
+                player1Card.classList.remove('active');
+                player2Card.classList.add('active');
+            }
+        }
+        
+        // Update game status
+        if (gameStatusEl && gameStatus) gameStatusEl.textContent = gameStatus;
+        
+        // Update dice display
+        if (dice1El) {
+            dice1El.textContent = dice && dice.length > 0 ? dice[0] : '-';
+        }
+        
+        if (dice2El) {
+            dice2El.textContent = dice && dice.length > 1 ? dice[1] : '-';
+        }
+        
+        // Update roll button state
+        if (rollButton) {
+            const canMove = (playerRole === "player1" && currentPlayer === "player1") || 
+                           (playerRole === "player2" && currentPlayer === "player2");
+            rollButton.disabled = diceRolled || !canMove;
+        }
+    } catch (error) {
+        console.error("Error in updateUIDirectly:", error);
     }
 }
 
@@ -490,7 +550,7 @@ function setup() {
             
             // Add new event listener
             newButton.addEventListener('click', function() {
-                safeDebugLog("Roll button clicked");
+                console.log("Roll button clicked");
                 if (typeof rollDice === 'function') {
                     rollDice();
                 } else if (typeof window.rollDice === 'function') {
@@ -545,7 +605,7 @@ function draw() {
             if (selectedChecker.pointIndex === -1) {
                 checker = { color: currentPlayer === 'player1' ? 'white' : 'black' };
             } else if (board[selectedChecker.pointIndex] && 
-                      board[selectedChecker.pointIndex][selectedChecker.checkerIndex]) {
+                       board[selectedChecker.pointIndex][selectedChecker.checkerIndex]) {
                 checker = board[selectedChecker.pointIndex][selectedChecker.checkerIndex];
             }
             
@@ -607,9 +667,10 @@ window.getPointX = getPointX;
 window.getPointY = getPointY;
 window.getCheckerY = getCheckerY;
 window.checkAndStartGame = checkAndStartGame;
+window.updateUIDirectly = updateUIDirectly;
 window.setup = setup;
 window.draw = draw;
 window.debugBoard = debugBoard;
 
 // Log that the board functions have been loaded
-safeDebugLog("Game board functions loaded successfully");
+console.log("Game board functions loaded successfully");
