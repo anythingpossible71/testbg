@@ -86,6 +86,10 @@
             background-color: #e68a00;
         }
     </style>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
     <div class="container">
@@ -107,6 +111,45 @@
     </div>
 
     <script>
+        // Enable debug mode
+        var debugMode = true;
+        
+        // Debug logger function
+        function debugLog(message, data) {
+            if (!debugMode) return;
+            
+            if (data) {
+                console.log("[DEBUG] " + message, data);
+            } else {
+                console.log("[DEBUG] " + message);
+            }
+        }
+        
+        // Wait for Firebase to load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize Firebase with your configuration
+            fetch('firebase-config.js')
+                .then(response => response.text())
+                .then(text => {
+                    // Extract Firebase config
+                    const configMatch = text.match(/const firebaseConfig = \{[\s\S]*?\};/);
+                    if (configMatch) {
+                        eval(configMatch[0]); // This evaluates the firebaseConfig
+                        
+                        // Initialize Firebase with the config
+                        if (typeof firebase !== 'undefined') {
+                            firebase.initializeApp(firebaseConfig);
+                            debugLog("Firebase initialized");
+                        } else {
+                            console.error("Firebase not loaded");
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error("Error loading Firebase config:", error);
+                });
+        });
+        
         document.getElementById('create-game-button').addEventListener('click', function() {
             const playerName = document.getElementById('player-name').value.trim();
             if (!playerName) {
@@ -114,8 +157,11 @@
                 return;
             }
             
-            // Generate a random game ID
+            debugLog("Creating game for player:", playerName);
+            
+            // Generate a unique game ID
             const gameId = 'game_' + Math.random().toString(36).substr(2, 9);
+            debugLog("Generated game ID:", gameId);
             
             // Create the game URL
             const baseUrl = window.location.origin + window.location.pathname.replace('index.html', '');
@@ -124,6 +170,57 @@
             // Display the URL
             document.getElementById('game-url').textContent = gameUrl;
             document.getElementById('game-url-container').style.display = 'block';
+            
+            // Initialize game data in Firebase
+            if (typeof firebase !== 'undefined' && firebase.database) {
+                debugLog("Initializing game in Firebase");
+                
+                // Initialize empty board array
+                let board = [];
+                for (let i = 0; i < 24; i++) {
+                    board.push([]);
+                }
+                
+                // White checkers
+                for (let i = 0; i < 2; i++) board[0].push({ color: 'white' });
+                for (let i = 0; i < 5; i++) board[11].push({ color: 'white' });
+                for (let i = 0; i < 3; i++) board[16].push({ color: 'white' });
+                for (let i = 0; i < 5; i++) board[18].push({ color: 'white' });
+                
+                // Black checkers
+                for (let i = 0; i < 2; i++) board[23].push({ color: 'black' });
+                for (let i = 0; i < 5; i++) board[12].push({ color: 'black' });
+                for (let i = 0; i < 3; i++) board[7].push({ color: 'black' });
+                for (let i = 0; i < 5; i++) board[5].push({ color: 'black' });
+                
+                // Create initial game state
+                const initialState = {
+                    board: board,
+                    whiteBar: [],
+                    blackBar: [],
+                    whiteBearOff: [],
+                    blackBearOff: [],
+                    currentPlayer: 'player1',
+                    dice: [],
+                    diceRolled: false,
+                    gameStatus: "Waiting for player 2 to join...",
+                    player1Name: playerName,
+                    player2Name: "Player 2",
+                    gameStarted: false,
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                // Save to Firebase
+                firebase.database().ref('games/' + gameId).set(initialState)
+                    .then(() => {
+                        debugLog("Game created successfully in Firebase");
+                    })
+                    .catch((error) => {
+                        console.error("Error creating game:", error);
+                    });
+            } else {
+                console.warn("Firebase not initialized, game state won't be saved");
+            }
             
             // Set up the copy button
             document.getElementById('copy-button').addEventListener('click', function() {
