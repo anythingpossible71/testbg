@@ -704,5 +704,36 @@
 
         
     </script>
+
+
+<script>
+window.addEventListener('DOMContentLoaded', function() {
+    console.log("DOM loaded, checking board state");
+    
+    // Force board initialization if board is empty
+    setTimeout(function() {
+        if (!board || board.length === 0 || !board.some(point => point && point.length > 0)) {
+            console.log("Board is empty, forcing initialization");
+            initializeBoard();
+            
+            // Log the board after initialization
+            console.log("Board after forced initialization:", board);
+            
+            // Save the state if you're player 1
+            if (playerRole === "player1") {
+                console.log("Saving initialized state to Firebase");
+                setTimeout(() => {
+                    if (typeof saveGameState === 'function') {
+                        saveGameState();
+                    }
+                }, 1000);
+            }
+        } else {
+            console.log("Board is already initialized:", board);
+        }
+    }, 2000); // Wait 2 seconds to ensure all other scripts have loaded
+});
+</script>
+    
 </body>
 </html>
