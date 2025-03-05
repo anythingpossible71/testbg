@@ -24,54 +24,55 @@ let blackBar = [];
 let whiteBearOff = [];
 let blackBearOff = [];
 
-// p5.js setup
+// p5.js 
+
+// In backgammon.js or game-board.js, modify the setup function:
 function setup() {
     console.log("Setup function called");
     // Create canvas and append to container
     const canvas = createCanvas(BOARD_WIDTH + 2 * BEAR_OFF_WIDTH, BOARD_HEIGHT);
     canvas.parent('canvas-container');
     
-    // Initialize game
+    // Always initialize board regardless of player count
     initializeBoard();
     
     // Set up event handler for roll button
     document.getElementById('roll-button').addEventListener('click', rollDice);
     
+    // Initialize game state
+    gameStarted = true; // Set to true to show the board with checkers
+    
     console.log("Backgammon game initialized");
 }
 
+// Make sure draw() always draws the board with checkers
 function draw() {
     background(240);
     
-    if (gameStarted) {
-        // Game in progress - draw game elements
-        drawBoard();
-        drawCheckers();
-        drawBar();
-        drawBearOffAreas();
+    // Always draw the board and pieces
+    drawBoard();
+    drawCheckers();
+    drawBar();
+    drawBearOffAreas();
+    
+    // Only show valid moves if it's the current player's turn
+    if (selectedChecker && canPlayerMove()) {
+        drawValidMoves();
+    }
+    
+    // Draw selected checker being dragged
+    if (selectedChecker) {
+        let checker;
         
-        // Only show valid moves if it's the current player's turn
-        if (selectedChecker && canPlayerMove()) {
-            drawValidMoves();
+        if (selectedChecker.pointIndex === -1) {
+            checker = { color: currentPlayer === 'player1' ? 'white' : 'black' };
+        } else {
+            checker = board[selectedChecker.pointIndex][selectedChecker.checkerIndex];
         }
         
-        // Draw selected checker being dragged
-        if (selectedChecker) {
-            let checker;
-            
-            if (selectedChecker.pointIndex === -1) {
-                checker = { color: currentPlayer === 'player1' ? 'white' : 'black' };
-            } else {
-                checker = board[selectedChecker.pointIndex][selectedChecker.checkerIndex];
-            }
-            
-            if (checker) {
-                drawChecker(mouseX, mouseY, checker.color);
-            }
+        if (checker) {
+            drawChecker(mouseX, mouseY, checker.color);
         }
-    } else {
-        // Waiting for game to start - draw empty board
-        drawBoard();
     }
 }
 
