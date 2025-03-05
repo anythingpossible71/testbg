@@ -269,27 +269,35 @@ document.getElementById('join-button').addEventListener('click', function() {
 });
         
         // Start the game
-        function startGame() {
-            gameStarted = true;
-            document.getElementById('game-status').textContent = 'Game started! Player 1 to roll.';
-            
-            // Enable roll button only for player 1 initially
-            if (playerRole === "player1") {
-                document.getElementById('roll-button').disabled = false;
-            } else {
-                document.getElementById('roll-button').disabled = true;
-            }
-            
-            // Initialize the game board
-            if (typeof initializeBoard === 'function') {
-                initializeBoard();
-            }
-            
-            // Update UI elements
-            updatePlayerInfo();
-            updateDiceDisplay();
-            updateGameStatus();
-        }
+       function startGame() {
+    console.log("Starting game with players:", player1Name, player2Name);
+    
+    gameStarted = true;
+    document.getElementById('game-status').textContent = 'Game started! Player 1 to roll.';
+    
+    // Initialize the game board if not already done
+    if (typeof initializeBoard === 'function') {
+        initializeBoard();
+    }
+    
+    // Enable roll button for player 1
+    if (playerRole === "player1") {
+        document.getElementById('roll-button').disabled = false;
+    } else {
+        document.getElementById('roll-button').disabled = true;
+    }
+    
+    // Make sure currentPlayer is set to player1
+    currentPlayer = 'player1';
+    
+    // Update UI
+    updatePlayerInfo();
+    updateDiceDisplay();
+    updateGameStatus();
+    
+    // Save the started state to Firebase
+    saveGameState();
+}
         
         // Save game state to Firebase (implement in firebase-config.js)
       function saveGameState() {
