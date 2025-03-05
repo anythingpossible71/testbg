@@ -11,8 +11,8 @@ const firebaseConfig = {
 
 // For now, we'll skip actual Firebase initialization
 // Uncomment this when you add your own Firebase config
-// firebase.initializeApp(firebaseConfig);
-// const database = firebase.database();
+ firebase.initializeApp(firebaseConfig);
+ const database = firebase.database();
 
 // Generate a unique game ID (for demonstration)
 function generateUniqueId() {
