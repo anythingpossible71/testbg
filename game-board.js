@@ -1,5 +1,7 @@
+// game-board.js
+// Complete implementation with performance optimizations and error prevention
+
 // Game configurations - using var to avoid redeclaration errors
-// Check if variables already exist before declaring
 if (typeof BOARD_WIDTH === 'undefined') var BOARD_WIDTH = 800;
 if (typeof BOARD_HEIGHT === 'undefined') var BOARD_HEIGHT = 600;
 if (typeof POINT_WIDTH === 'undefined') var POINT_WIDTH = 50;
@@ -8,10 +10,30 @@ if (typeof CHECKER_RADIUS === 'undefined') var CHECKER_RADIUS = 25;
 if (typeof BAR_WIDTH === 'undefined') var BAR_WIDTH = 50;
 if (typeof BEAR_OFF_WIDTH === 'undefined') var BEAR_OFF_WIDTH = 80;
 
+// Performance optimization variables
+let lastDrawTime = 0;
+const FRAME_RATE_LIMIT = 30; // Limit to 30 FPS to reduce CPU usage
+let gameInitialized = false;
+
+// Safe console logging
+function safeDebugLog(message, data) {
+    if (typeof debugLog === 'function') {
+        debugLog(message, data);
+    } else {
+        if (data) {
+            console.log("[DEBUG] " + message, data);
+        } else {
+            console.log("[DEBUG] " + message);
+        }
+    }
+}
+
 // Initialize the game board
 function initializeBoard() {
     try {
-        debugLog("Initializing game board");
+        safeDebugLog("Initializing game board");
+        
+        // Create new board array
         board = [];
         for (let i = 0; i < 24; i++) {
             board.push([]);
@@ -29,12 +51,13 @@ function initializeBoard() {
         for (let i = 0; i < 3; i++) board[7].push({ color: 'black' });
         for (let i = 0; i < 5; i++) board[5].push({ color: 'black' });
         
+        // Reset game state
         whiteBar = [];
         blackBar = [];
         whiteBearOff = [];
         blackBearOff = [];
         
-        debugLog("Board initialized:", { boardLength: board.length });
+        safeDebugLog("Board initialized successfully", { boardLength: board.length });
     } catch (error) {
         console.error("Error in initializeBoard:", error);
     }
@@ -52,9 +75,11 @@ function drawBoard() {
         fill(101, 67, 33);
         rect(BEAR_OFF_WIDTH, 0, BOARD_WIDTH, BOARD_HEIGHT);
         
+        // Define point colors
         let darkPointColor = color(165, 42, 42);
         let lightPointColor = color(245, 245, 220);
         
+        // Draw all 24 points
         for (let i = 0; i < 24; i++) {
             let pointX = getPointX(i);
             let pointY = getPointY(i);
@@ -98,19 +123,24 @@ function drawBoard() {
 
 function drawCheckers() {
     try {
-        if (!board || board.length === 0) {
-            debugLog("No board data to draw checkers");
+        // Safety check
+        if (!board || !Array.isArray(board) || board.length === 0) {
+            safeDebugLog("No valid board data to draw checkers");
             return;
         }
         
+        // Draw checkers on all points
         for (let i = 0; i < board.length; i++) {
             let point = board[i];
-            if (!point || point.length === 0) continue;
+            if (!point || !Array.isArray(point) || point.length === 0) continue;
             
             let pointX = getPointX(i);
             
             for (let j = 0; j < point.length; j++) {
-                if (selectedChecker && selectedChecker.pointIndex === i && selectedChecker.checkerIndex === j) {
+                // Skip the selected checker (it will be drawn at mouse position)
+                if (selectedChecker && 
+                    selectedChecker.pointIndex === i && 
+                    selectedChecker.checkerIndex === j) {
                     continue;
                 }
                 
@@ -118,7 +148,6 @@ function drawCheckers() {
                 if (!checker || !checker.color) continue;
                 
                 let checkerY = getCheckerY(i, j);
-                
                 drawChecker(pointX, checkerY, checker.color);
             }
         }
@@ -169,25 +198,25 @@ function drawBar() {
         strokeWeight(3);
         rect(barX - BAR_WIDTH/2, 0, BAR_WIDTH, BOARD_HEIGHT);
         
+        // Safety checks for arrays
+        if (!whiteBar) whiteBar = [];
+        if (!blackBar) blackBar = [];
+        
         // Draw checkers on the bar
-        if (whiteBar && whiteBar.length) {
-            for (let i = 0; i < whiteBar.length; i++) {
-                let barY = BOARD_HEIGHT / 4 - (i * CHECKER_RADIUS * 1.5);
-                drawChecker(barX, barY, 'white');
-            }
+        for (let i = 0; i < whiteBar.length; i++) {
+            let barY = BOARD_HEIGHT / 4 - (i * CHECKER_RADIUS * 1.5);
+            drawChecker(barX, barY, 'white');
         }
         
-        if (blackBar && blackBar.length) {
-            for (let i = 0; i < blackBar.length; i++) {
-                let barY = BOARD_HEIGHT * 3/4 + (i * CHECKER_RADIUS * 1.5);
-                drawChecker(barX, barY, 'black');
-            }
+        for (let i = 0; i < blackBar.length; i++) {
+            let barY = BOARD_HEIGHT * 3/4 + (i * CHECKER_RADIUS * 1.5);
+            drawChecker(barX, barY, 'black');
         }
         
         // Highlight the bar if player has checkers there and must move them
         let playerColor = currentPlayer === 'player1' ? 'white' : 'black';
-        if ((playerColor === 'white' && whiteBar && whiteBar.length > 0) || 
-            (playerColor === 'black' && blackBar && blackBar.length > 0)) {
+        if ((playerColor === 'white' && whiteBar.length > 0) || 
+            (playerColor === 'black' && blackBar.length > 0)) {
             
             noFill();
             stroke(255, 255, 0);
@@ -212,6 +241,10 @@ function drawBar() {
 
 function drawBearOffAreas() {
     try {
+        // Safety checks for arrays
+        if (!whiteBearOff) whiteBearOff = [];
+        if (!blackBearOff) blackBearOff = [];
+        
         // Left bear-off area (Black)
         fill(80, 50, 20);
         rect(0, 0, BEAR_OFF_WIDTH, BOARD_HEIGHT);
@@ -225,33 +258,29 @@ function drawBearOffAreas() {
         const rectHeight = 20;
         
         // Draw rectangle for each white piece borne off
-        if (whiteBearOff && whiteBearOff.length) {
-            for (let i = 0; i < whiteBearOff.length; i++) {
-                fill(255);
-                stroke(200);
-                strokeWeight(2);
-                
-                // Stack vertically
-                const y = 100 + i * (rectHeight + 5);
-                const x = BOARD_WIDTH + BEAR_OFF_WIDTH + 15;
-                
-                rect(x, y, rectWidth, rectHeight, 5);
-            }
+        for (let i = 0; i < whiteBearOff.length; i++) {
+            fill(255);
+            stroke(200);
+            strokeWeight(2);
+            
+            // Stack vertically
+            const y = 100 + i * (rectHeight + 5);
+            const x = BOARD_WIDTH + BEAR_OFF_WIDTH + 15;
+            
+            rect(x, y, rectWidth, rectHeight, 5);
         }
         
         // Draw rectangle for each black piece borne off
-        if (blackBearOff && blackBearOff.length) {
-            for (let i = 0; i < blackBearOff.length; i++) {
-                fill(50);
-                stroke(20);
-                strokeWeight(2);
-                
-                // Stack vertically
-                const y = 100 + i * (rectHeight + 5);
-                const x = 15;
-                
-                rect(x, y, rectWidth, rectHeight, 5);
-            }
+        for (let i = 0; i < blackBearOff.length; i++) {
+            fill(50);
+            stroke(20);
+            strokeWeight(2);
+            
+            // Stack vertically
+            const y = 100 + i * (rectHeight + 5);
+            const x = 15;
+            
+            rect(x, y, rectWidth, rectHeight, 5);
         }
     } catch (error) {
         console.error("Error in drawBearOffAreas:", error);
@@ -260,6 +289,10 @@ function drawBearOffAreas() {
 
 function drawValidMoves() {
     try {
+        // Safety checks for arrays
+        if (!validMoves) validMoves = [];
+        if (!combinedMoves) combinedMoves = [];
+        
         // Only show valid moves if it's the current player's turn and they can move
         if ((playerRole === "player1" && currentPlayer === "player1") || 
             (playerRole === "player2" && currentPlayer === "player2")) {
@@ -268,26 +301,24 @@ function drawValidMoves() {
             noStroke();
             fill(255, 255, 0, 100);
             
-            if (validMoves && validMoves.length) {
-                for (const pointIndex of validMoves) {
-                    if (pointIndex === 24 || pointIndex === -1) continue;
-                    
-                    let pointX = getPointX(pointIndex);
-                    let pointY = getPointY(pointIndex);
-                    
-                    if (pointIndex < 12) {
-                        triangle(
-                            pointX - POINT_WIDTH/2, pointY, 
-                            pointX + POINT_WIDTH/2, pointY, 
-                            pointX, pointY - POINT_HEIGHT
-                        );
-                    } else {
-                        triangle(
-                            pointX - POINT_WIDTH/2, pointY, 
-                            pointX + POINT_WIDTH/2, pointY, 
-                            pointX, pointY + POINT_HEIGHT
-                        );
-                    }
+            for (const pointIndex of validMoves) {
+                if (pointIndex === 24 || pointIndex === -1) continue;
+                
+                let pointX = getPointX(pointIndex);
+                let pointY = getPointY(pointIndex);
+                
+                if (pointIndex < 12) {
+                    triangle(
+                        pointX - POINT_WIDTH/2, pointY, 
+                        pointX + POINT_WIDTH/2, pointY, 
+                        pointX, pointY - POINT_HEIGHT
+                    );
+                } else {
+                    triangle(
+                        pointX - POINT_WIDTH/2, pointY, 
+                        pointX + POINT_WIDTH/2, pointY, 
+                        pointX, pointY + POINT_HEIGHT
+                    );
                 }
             }
             
@@ -295,33 +326,33 @@ function drawValidMoves() {
             noStroke();
             fill(0, 255, 255, 100);
             
-            if (combinedMoves && combinedMoves.length) {
-                for (const combinedMove of combinedMoves) {
-                    if (combinedMove.targetIndex === 24 || combinedMove.targetIndex === -1) continue;
-                    
-                    let pointX = getPointX(combinedMove.targetIndex);
-                    let pointY = getPointY(combinedMove.targetIndex);
-                    
-                    if (combinedMove.targetIndex < 12) {
-                        triangle(
-                            pointX - POINT_WIDTH/2, pointY, 
-                            pointX + POINT_WIDTH/2, pointY, 
-                            pointX, pointY - POINT_HEIGHT
-                        );
-                    } else {
-                        triangle(
-                            pointX - POINT_WIDTH/2, pointY, 
-                            pointX + POINT_WIDTH/2, pointY, 
-                            pointX, pointY + POINT_HEIGHT
-                        );
-                    }
+            for (const combinedMove of combinedMoves) {
+                if (!combinedMove || 
+                    combinedMove.targetIndex === 24 || 
+                    combinedMove.targetIndex === -1) continue;
+                
+                let pointX = getPointX(combinedMove.targetIndex);
+                let pointY = getPointY(combinedMove.targetIndex);
+                
+                if (combinedMove.targetIndex < 12) {
+                    triangle(
+                        pointX - POINT_WIDTH/2, pointY, 
+                        pointX + POINT_WIDTH/2, pointY, 
+                        pointX, pointY - POINT_HEIGHT
+                    );
+                } else {
+                    triangle(
+                        pointX - POINT_WIDTH/2, pointY, 
+                        pointX + POINT_WIDTH/2, pointY, 
+                        pointX, pointY + POINT_HEIGHT
+                    );
                 }
             }
             
             // Bearing off indicators
             let playerColor = currentPlayer === 'player1' ? 'white' : 'black';
             
-            if (validMoves && (validMoves.includes(24) || validMoves.includes(-1))) {
+            if (validMoves.includes(24) || validMoves.includes(-1)) {
                 noStroke();
                 fill(255, 255, 0, 100);
                 
@@ -353,17 +384,12 @@ function getPointX(pointIndex) {
         }
     } catch (error) {
         console.error("Error in getPointX:", error);
-        return BEAR_OFF_WIDTH + BOARD_WIDTH/2; // Default to center if error
+        return BOARD_WIDTH / 2; // Return center X if error
     }
 }
 
 function getPointY(pointIndex) {
-    try {
-        return pointIndex < 12 ? BOARD_HEIGHT : 0;
-    } catch (error) {
-        console.error("Error in getPointY:", error);
-        return BOARD_HEIGHT/2; // Default to middle if error
-    }
+    return pointIndex < 12 ? BOARD_HEIGHT : 0;
 }
 
 function getCheckerY(pointIndex, checkerIndex) {
@@ -376,18 +402,17 @@ function getCheckerY(pointIndex, checkerIndex) {
         }
     } catch (error) {
         console.error("Error in getCheckerY:", error);
-        return BOARD_HEIGHT/2; // Default to middle if error
+        return BOARD_HEIGHT / 2; // Return center Y if error
     }
 }
 
 // Check if both players have joined and force game to start if needed
 function checkAndStartGame() {
     try {
-        debugLog("Checking if game can start...");
-        debugLog("Player names:", { player1: player1Name, player2: player2Name });
+        safeDebugLog("Checking if game can start...");
         
         if (player1Name !== "Player 1" && player2Name !== "Player 2") {
-            debugLog("Both players have joined, forcing game to start");
+            safeDebugLog("Both players have joined, forcing game to start");
             
             // Force UI update
             gameStarted = true;
@@ -425,10 +450,16 @@ function checkAndStartGame() {
     }
 }
 
-// p5.js setup function
+// p5.js setup function - only runs once
 function setup() {
     try {
-        debugLog("Setup function called");
+        if (gameInitialized) {
+            console.log("Setup already called once, skipping");
+            return;
+        }
+        
+        safeDebugLog("Setup function called");
+        gameInitialized = true;
         
         // Create canvas and append to container
         const canvasContainer = document.getElementById('canvas-container');
@@ -436,48 +467,60 @@ function setup() {
             const canvas = createCanvas(BOARD_WIDTH + 2 * BEAR_OFF_WIDTH, BOARD_HEIGHT);
             canvas.parent('canvas-container');
             
-            debugLog("Canvas created with dimensions:", { 
+            // Set framerate limit
+            frameRate(30);
+            
+            safeDebugLog("Canvas created with dimensions:", { 
                 width: BOARD_WIDTH + 2 * BEAR_OFF_WIDTH, 
                 height: BOARD_HEIGHT 
             });
         } else {
-            debugLog("Canvas container not found");
+            console.error("Canvas container not found");
         }
         
         // Initialize game
-        if (typeof initializeBoard === 'function') {
-            initializeBoard();
-        } else {
-            console.error("initializeBoard function not available");
-        }
+        initializeBoard();
         
         // Make sure the roll button is connected
         const rollButton = document.getElementById('roll-button');
         if (rollButton) {
-            rollButton.addEventListener('click', function() {
-                debugLog("Roll button clicked");
+            // Remove any existing event listeners
+            const newButton = rollButton.cloneNode(true);
+            rollButton.parentNode.replaceChild(newButton, rollButton);
+            
+            // Add new event listener
+            newButton.addEventListener('click', function() {
+                safeDebugLog("Roll button clicked");
                 if (typeof rollDice === 'function') {
                     rollDice();
                 } else if (typeof window.rollDice === 'function') {
                     window.rollDice();
                 } else {
-                    debugLog("rollDice function not found");
+                    console.error("rollDice function not found");
                 }
             });
-            debugLog("Roll button event listener added");
+            
+            safeDebugLog("Roll button event listener added");
         } else {
-            debugLog("Roll button not found");
+            safeDebugLog("Roll button not found");
         }
         
-        debugLog("Backgammon game initialized in setup");
+        safeDebugLog("Backgammon game initialized in setup");
     } catch (error) {
         console.error("Error in setup:", error);
     }
 }
 
-// p5.js draw function
+// p5.js draw function with frame rate limiting
 function draw() {
     try {
+        // Frame rate limiting to prevent high CPU usage
+        const currentTime = performance.now();
+        if (currentTime - lastDrawTime < 1000 / FRAME_RATE_LIMIT) {
+            return; // Skip this frame
+        }
+        lastDrawTime = currentTime;
+        
         background(240);
         
         // Always draw the game board
@@ -569,4 +612,4 @@ window.draw = draw;
 window.debugBoard = debugBoard;
 
 // Log that the board functions have been loaded
-debugLog("Game board functions loaded successfully");
+safeDebugLog("Game board functions loaded successfully");
