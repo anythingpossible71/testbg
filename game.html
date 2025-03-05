@@ -179,133 +179,56 @@
         }
         
         // Initialize from URL parameters
-        function initFromUrl() {
-            const params = getUrlParams();
-            
-            if (params.gameId) {
-                gameId = params.gameId;
-                
-                // Set share URL
-                const baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = `${baseUrl}?gameId=${gameId}&playerNum=2`;
-                document.getElementById('share-url').textContent = shareUrl;
-                
-                // Handle player joining from URL
-                if (params.playerNum && params.playerName) {
-                    const playerNum = parseInt(params.playerNum);
-                    const playerName = decodeURIComponent(params.playerName);
-                    
-                    if (playerNum === 1) {
-                        // Player 1 is joining
-                        player1Name = playerName;
-                        playerRole = "player1";
-                        
-                        // Update UI to show waiting for player 2
-                        document.getElementById('player-join').classList.remove('hidden');
-                        document.getElementById('name-entry').classList.add('hidden');
-                        document.getElementById('waiting-message').classList.remove('hidden');
-                        document.getElementById('join-title').textContent = `Welcome, ${playerName}!`;
-                        
-                        // Update player1 card
-                        document.getElementById('player1-name').textContent = playerName;
-                        document.getElementById('player1-card').classList.add('active');
-                    } 
-                    else if (playerNum === 2) {
-                        // Player 2 is joining
-                        player2Name = playerName;
-                        playerRole = "player2";
-                        
-                        // Hide join UI and show game controls
-                        document.getElementById('player-join').classList.add('hidden');
-                        document.getElementById('game-controls').classList.remove('hidden');
-                        
-                        // Update player2 card
-                        document.getElementById('player2-name').textContent = playerName;
-                        
-                        // Start game
-                        startGame();
-                    }
-                } else {
-                    // No player info, show join UI
-                    document.getElementById('player-join').classList.remove('hidden');
-                    document.getElementById('join-message').textContent = 'Enter your name to join this game:';
-                }
-            } else {
-                // No game ID, redirect to index page
-                window.location.href = 'index.html';
-            }
-        }
+      // In game.html, modify the initFromUrl function:
+function initFromUrl() {
+    const params = getUrlParams();
+    
+    if (params.gameId) {
+        gameId = params.gameId;
         
-        // Join button handler
-        document.getElementById('join-button').addEventListener('click', function() {
-            const playerName = document.getElementById('player-name-input').value.trim();
-            if (!playerName) {
-                alert('Please enter your name');
-                return;
-            }
+        // Set share URL
+        const baseUrl = window.location.origin + window.location.pathname;
+        const shareUrl = `${baseUrl}?gameId=${gameId}&playerNum=2`;
+        document.getElementById('share-url').textContent = shareUrl;
+        
+        // Handle player joining from URL
+        if (params.playerNum) {
+            const playerNum = parseInt(params.playerNum);
             
-            // Determine if this is player 1 or player 2
-            if (!player1Name || player1Name === "Player 1") {
-                // This is player 1
+            if (playerNum === 1 && params.playerName) {
+                // Player 1 is joining with name
+                const playerName = decodeURIComponent(params.playerName);
                 player1Name = playerName;
                 playerRole = "player1";
                 
-                // Update URL
-                const newUrl = `${window.location.pathname}?gameId=${gameId}&playerNum=1&playerName=${encodeURIComponent(playerName)}`;
-                window.history.pushState({}, '', newUrl);
-                
                 // Update UI to show waiting for player 2
+                document.getElementById('player-join').classList.remove('hidden');
                 document.getElementById('name-entry').classList.add('hidden');
                 document.getElementById('waiting-message').classList.remove('hidden');
                 document.getElementById('join-title').textContent = `Welcome, ${playerName}!`;
                 
-                // Update share URL for player 2
-                const baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = `${baseUrl}?gameId=${gameId}&playerNum=2`;
-                document.getElementById('share-url').textContent = shareUrl;
-                
                 // Update player1 card
                 document.getElementById('player1-name').textContent = playerName;
+                document.getElementById('player1-card').classList.add('active');
             } 
-            else {
-                // This is player 2
-                player2Name = playerName;
-                playerRole = "player2";
-                
-                // Update URL
-                const newUrl = `${window.location.pathname}?gameId=${gameId}&playerNum=2&playerName=${encodeURIComponent(playerName)}`;
-                window.history.pushState({}, '', newUrl);
-                
-                // Hide join UI and show game controls
-                document.getElementById('player-join').classList.add('hidden');
-                document.getElementById('game-controls').classList.remove('hidden');
-                
-                // Update player2 card
-                document.getElementById('player2-name').textContent = playerName;
-                
-                // Start game
-                startGame();
+            else if (playerNum === 2) {
+                // Player 2 is joining - ALWAYS show name entry for player 2
+                document.getElementById('player-join').classList.remove('hidden');
+                document.getElementById('waiting-message').classList.add('hidden');
+                document.getElementById('name-entry').classList.remove('hidden');
+                document.getElementById('join-title').textContent = `Join as Player 2`;
+                document.getElementById('join-message').textContent = 'Enter your name to join this game:';
             }
-        });
-        
-        // Copy link button handler
-        document.getElementById('copy-link-button').addEventListener('click', function() {
-            const shareUrl = document.getElementById('share-url').textContent;
-            
-            const tempInput = document.createElement('input');
-            tempInput.value = shareUrl;
-            document.body.appendChild(tempInput);
-            tempInput.select();
-            document.execCommand('copy');
-            document.body.removeChild(tempInput);
-            
-            const button = this;
-            const originalText = button.textContent;
-            button.textContent = 'Copied!';
-            setTimeout(() => {
-                button.textContent = originalText;
-            }, 2000);
-        });
+        } else {
+            // No player info, show join UI
+            document.getElementById('player-join').classList.remove('hidden');
+            document.getElementById('join-message').textContent = 'Enter your name to join this game:';
+        }
+    } else {
+        // No game ID, redirect to index page
+        window.location.href = 'index.html';
+    }
+}
         
         // Start the game
         function startGame() {
