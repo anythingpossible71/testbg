@@ -7,28 +7,9 @@ const CHECKER_RADIUS = 25;
 const BAR_WIDTH = 50;
 const BEAR_OFF_WIDTH = 80;
 
-// DON'T redeclare variables defined in game.html
-// Initialize if needed, but don't use 'let' or 'const'
-// gameId = null;  // Already declared in game.html
-// playerRole = "spectator";  // Already declared in game.html
-// player1Name = "Player 1";  // Already declared in game.html
-// player2Name = "Player 2";  // Already declared in game.html
-// board = [];  // Already declared in game.html
-// selectedChecker = null;  // Already declared in game.html
-// validMoves = [];  // Already declared in game.html
-// combinedMoves = [];  // Already declared in game.html
-// currentPlayer = 'player1';  // Already declared in game.html
-// dice = [];  // Already declared in game.html
-// diceRolled = false;  // Already declared in game.html
-// gameStatus = "Waiting for opponent...";  // Already declared in game.html
-// whiteBar = [];  // Already declared in game.html
-// blackBar = [];  // Already declared in game.html
-// whiteBearOff = [];  // Already declared in game.html
-// blackBearOff = [];  // Already declared in game.html
-
 // Initialize the game board
 function initializeBoard() {
-    console.log("Initializing game board");
+    debugLog("Initializing game board");
     board = [];
     for (let i = 0; i < 24; i++) {
         board.push([]);
@@ -50,6 +31,8 @@ function initializeBoard() {
     blackBar = [];
     whiteBearOff = [];
     blackBearOff = [];
+    
+    debugLog("Board initialized", { board: board });
 }
 
 // Drawing functions
@@ -105,9 +88,14 @@ function drawBoard() {
 }
 
 function drawCheckers() {
+    if (!board || board.length === 0) {
+        debugLog("No board data to draw checkers");
+        return;
+    }
+    
     for (let i = 0; i < board.length; i++) {
         let point = board[i];
-        if (point.length === 0) continue;
+        if (!point || point.length === 0) continue;
         
         let pointX = getPointX(i);
         
@@ -123,6 +111,7 @@ function drawCheckers() {
         }
     }
 }
+
 function drawChecker(x, y, color) {
     if (color === 'white') {
         fill(255);
@@ -146,7 +135,6 @@ function drawChecker(x, y, color) {
         ellipse(x - CHECKER_RADIUS * 0.3, y - CHECKER_RADIUS * 0.3, CHECKER_RADIUS);
     }
 }
-
 function drawBar() {
     let barX = BOARD_WIDTH/2 + BEAR_OFF_WIDTH;
         
@@ -264,7 +252,60 @@ function drawValidMoves() {
             }
         }
         
-        // Highlighting for combined moves and bearing off omitted for brevity
+        // Highlight combined moves (using both dice)
+        noStroke();
+        fill(0, 255, 255, 100);
+        
+        for (const combinedMove of combinedMoves) {
+            if (combinedMove.targetIndex === 24 || combinedMove.targetIndex === -1) continue;
+            
+            let pointX = getPointX(combinedMove.targetIndex);
+            let pointY = getPointY(combinedMove.targetIndex);
+            
+            if (combinedMove.targetIndex < 12) {
+                triangle(
+                    pointX - POINT_WIDTH/2, pointY, 
+                    pointX + POINT_WIDTH/2, pointY, 
+                    pointX, pointY - POINT_HEIGHT
+                );
+            } else {
+                triangle(
+                    pointX - POINT_WIDTH/2, pointY, 
+                    pointX + POINT_WIDTH/2, pointY, 
+                    pointX, pointY + POINT_HEIGHT
+                );
+            }
+        }
+        
+        // Bearing off indicators
+        let playerColor = currentPlayer === 'player1' ? 'white' : 'black';
+        
+        if (validMoves.includes(24) || validMoves.includes(-1)) {
+            noStroke();
+            fill(255, 255, 0, 100);
+            
+            if (playerColor === 'white' && validMoves.includes(24)) {
+                rect(BOARD_WIDTH + BEAR_OFF_WIDTH, 0, BEAR_OFF_WIDTH, BOARD_HEIGHT/2);
+            } else if (playerColor === 'black' && validMoves.includes(-1)) {
+                rect(0, BOARD_HEIGHT/2, BEAR_OFF_WIDTH, BOARD_HEIGHT/2);
+            }
+        }
+        
+        // Combined moves for bearing off
+        for (const combinedMove of combinedMoves) {
+            if ((playerColor === 'white' && combinedMove.targetIndex === 24) || 
+                (playerColor === 'black' && combinedMove.targetIndex === -1)) {
+                
+                noStroke();
+                fill(0, 255, 255, 100);
+                
+                if (playerColor === 'white') {
+                    rect(BOARD_WIDTH + BEAR_OFF_WIDTH, 0, BEAR_OFF_WIDTH, BOARD_HEIGHT/2);
+                } else {
+                    rect(0, BOARD_HEIGHT/2, BEAR_OFF_WIDTH, BOARD_HEIGHT/2);
+                }
+            }
+        }
     }
 }
 // Helper functions for board positions
@@ -297,7 +338,7 @@ function getCheckerY(pointIndex, checkerIndex) {
 
 // p5.js setup function
 function setup() {
-    console.log("Setup function called");
+    debugLog("Setup function called");
     
     // Create canvas and append to container
     const canvas = createCanvas(BOARD_WIDTH + 2 * BEAR_OFF_WIDTH, BOARD_HEIGHT);
@@ -318,7 +359,7 @@ function setup() {
         }
     }
     
-    console.log("Backgammon game initialized in setup");
+    debugLog("Backgammon game initialized in setup");
 }
 
 // p5.js draw function
@@ -327,9 +368,13 @@ function draw() {
     
     // Always draw the game board
     drawBoard();
-    drawCheckers();
-    drawBar();
-    drawBearOffAreas();
+    
+    // Only draw checkers if game has started or board is initialized
+    if (board && board.length > 0) {
+        drawCheckers();
+        drawBar();
+        drawBearOffAreas();
+    }
     
     // Only show valid moves if it's the current player's turn
     if (selectedChecker && canPlayerMove()) {
@@ -342,7 +387,8 @@ function draw() {
         
         if (selectedChecker.pointIndex === -1) {
             checker = { color: currentPlayer === 'player1' ? 'white' : 'black' };
-        } else {
+        } else if (board[selectedChecker.pointIndex] && 
+                   board[selectedChecker.pointIndex][selectedChecker.checkerIndex]) {
             checker = board[selectedChecker.pointIndex][selectedChecker.checkerIndex];
         }
         
@@ -363,3 +409,5 @@ window.drawValidMoves = drawValidMoves;
 window.getPointX = getPointX;
 window.getPointY = getPointY;
 window.getCheckerY = getCheckerY;
+window.setup = setup;
+window.draw = draw;
