@@ -18,6 +18,36 @@ function generateUniqueId() {
     return 'game_' + Math.random().toString(36).substr(2, 9);
 }
 
+// Function to prepare data for Firebase (preventing circular references)
+function prepareGameDataForSaving(gameData) {
+    // Create a deep copy without circular references
+    const safeData = {};
+    
+    // Handle the board specially - convert to a simple format
+    if (gameData.board) {
+        safeData.board = [];
+        for (let i = 0; i < gameData.board.length; i++) {
+            const point = gameData.board[i] || [];
+            safeData.board[i] = [];
+            for (let j = 0; j < point.length; j++) {
+                // Only store the color of each checker
+                safeData.board[i].push({
+                    color: point[j].color
+                });
+            }
+        }
+    }
+    
+    // Copy other properties directly
+    for (const key in gameData) {
+        if (key !== 'board') {
+            safeData[key] = gameData[key];
+        }
+    }
+    
+    return safeData;
+}
+
 // Save game state to Firebase
 function saveGameState() {
     if (typeof debugLog === 'function') {
@@ -48,11 +78,14 @@ function saveGameState() {
             timestamp: firebase.database.ServerValue.TIMESTAMP
         };
         
+        // Use the serializer to prepare safe data
+        const safeData = prepareGameDataForSaving(gameData);
+        
         if (typeof debugLog === 'function') {
             debugLog("Saving data to Firebase");
         }
         
-        firebase.database().ref('games/' + gameId).update(gameData)
+        firebase.database().ref('games/' + gameId).update(safeData)
             .then(() => {
                 if (typeof debugLog === 'function') {
                     debugLog("Game state saved successfully");
@@ -151,6 +184,49 @@ function listenForGameChanges(gameId) {
     });
 }
 
+// Force game to start
+function forceStartGame() {
+    console.log("Force starting the game with players:", player1Name, player2Name);
+    
+    // Ensure we have a board
+    if (!board || board.length === 0) {
+        if (typeof initializeBoard === 'function') {
+            initializeBoard();
+        }
+    }
+    
+    // Set game state
+    gameStarted = true;
+    currentPlayer = 'player1';
+    
+    // Update UI
+    if (document.getElementById('player-join')) {
+        document.getElementById('player-join').classList.add('hidden');
+    }
+    if (document.getElementById('game-controls')) {
+        document.getElementById('game-controls').classList.remove('hidden');
+    }
+    
+    // Update game status
+    gameStatus = player1Name + "'s turn to roll";
+    if (document.getElementById('game-status')) {
+        document.getElementById('game-status').textContent = gameStatus;
+    }
+    
+    // Enable roll button for player 1
+    if (currentPlayer === 'player1' && playerRole === 'player1') {
+        const rollButton = document.getElementById('roll-button');
+        if (rollButton) rollButton.disabled = false;
+    }
+    
+    // Save the state
+    if (typeof saveGameState === 'function') {
+        saveGameState();
+    }
+    
+    console.log("Game forcefully started");
+}
+
 // Update game state from Firebase data
 function updateGameFromFirebase(gameData) {
     try {
@@ -175,6 +251,11 @@ function updateGameFromFirebase(gameData) {
             }
         }
         
+        // If both players have joined, force start the game
+        if (player1Name !== "Player 1" && player2Name !== "Player 2") {
+            forceStartGame();
+        }
+        
         // If player 2 joined, update UI accordingly
         if (playerRole === "player1" && gameData.player2Name && 
             gameData.player2Name !== "Player 2") {
@@ -189,15 +270,8 @@ function updateGameFromFirebase(gameData) {
             if (playerJoin) playerJoin.classList.add('hidden');
             if (gameControls) gameControls.classList.remove('hidden');
             
-            // Start game if not already started
-            if (!gameStarted && typeof startGame === 'function') {
-                startGame();
-            } else {
-                // Force game state check
-                if (typeof checkAndStartGame === 'function') {
-                    checkAndStartGame();
-                }
-            }
+            // Force game to start
+            forceStartGame();
         }
         
         // If game has started, update game state
@@ -205,15 +279,15 @@ function updateGameFromFirebase(gameData) {
             gameStarted = true;
             
             // Update game state variables
-            board = gameData.board || [];
-            whiteBar = gameData.whiteBar || [];
-            blackBar = gameData.blackBar || [];
-            whiteBearOff = gameData.whiteBearOff || [];
-            blackBearOff = gameData.blackBearOff || [];
-            currentPlayer = gameData.currentPlayer;
-            dice = gameData.dice || [];
-            diceRolled = gameData.diceRolled || false;
-            gameStatus = gameData.gameStatus;
+            if (gameData.board) board = gameData.board;
+            if (gameData.whiteBar) whiteBar = gameData.whiteBar;
+            if (gameData.blackBar) blackBar = gameData.blackBar;
+            if (gameData.whiteBearOff) whiteBearOff = gameData.whiteBearOff;
+            if (gameData.blackBearOff) blackBearOff = gameData.blackBearOff;
+            if (gameData.currentPlayer) currentPlayer = gameData.currentPlayer;
+            if (gameData.dice) dice = gameData.dice;
+            if (gameData.diceRolled !== undefined) diceRolled = gameData.diceRolled;
+            if (gameData.gameStatus) gameStatus = gameData.gameStatus;
             
             // Debug log for the most critical states
             if (typeof debugLog === 'function') {
@@ -228,11 +302,6 @@ function updateGameFromFirebase(gameData) {
             if (typeof updatePlayerInfo === 'function') updatePlayerInfo();
             if (typeof updateDiceDisplay === 'function') updateDiceDisplay();
             if (typeof updateGameStatus === 'function') updateGameStatus();
-            
-            // Check if game should be forced to start
-            if (typeof checkAndStartGame === 'function') {
-                checkAndStartGame();
-            }
         }
     } catch (error) {
         console.error("Error updating game from Firebase:", error);
@@ -245,5 +314,6 @@ window.loadGameState = loadGameState;
 window.listenForGameChanges = listenForGameChanges;
 window.updateGameFromFirebase = updateGameFromFirebase;
 window.generateUniqueId = generateUniqueId;
+window.forceStartGame = forceStartGame;
 
 console.log("Firebase configuration loaded successfully");
