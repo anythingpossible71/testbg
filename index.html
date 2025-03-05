@@ -127,30 +127,43 @@
         
         // Wait for Firebase to load
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize Firebase with your configuration
+            debugLog("DOM fully loaded");
+            
+            // Set up event listeners
+            const createGameButton = document.getElementById('create-game-button');
+            const copyButton = document.getElementById('copy-button');
+            const playButton = document.getElementById('play-button');
+            
+            if (createGameButton) {
+                createGameButton.addEventListener('click', createNewGame);
+                debugLog("Create game button listener added");
+            }
+            
+            if (copyButton) {
+                copyButton.addEventListener('click', copyGameLink);
+                debugLog("Copy button listener added");
+            }
+            
+            if (playButton) {
+                playButton.addEventListener('click', goToGame);
+                debugLog("Play button listener added");
+            }
+            
+            // Initialize Firebase
             fetch('firebase-config.js')
                 .then(response => response.text())
                 .then(text => {
-                    // Extract Firebase config
-                    const configMatch = text.match(/const firebaseConfig = \{[\s\S]*?\};/);
-                    if (configMatch) {
-                        eval(configMatch[0]); // This evaluates the firebaseConfig
-                        
-                        // Initialize Firebase with the config
-                        if (typeof firebase !== 'undefined') {
-                            firebase.initializeApp(firebaseConfig);
-                            debugLog("Firebase initialized");
-                        } else {
-                            console.error("Firebase not loaded");
-                        }
-                    }
+                    // Extract Firebase config and initialization
+                    eval(text); // This will execute the Firebase config script
+                    debugLog("Firebase config loaded");
                 })
                 .catch(error => {
                     console.error("Error loading Firebase config:", error);
                 });
         });
         
-        document.getElementById('create-game-button').addEventListener('click', function() {
+        // Create a new game
+        function createNewGame() {
             const playerName = document.getElementById('player-name').value.trim();
             if (!playerName) {
                 alert('Please enter your name');
@@ -160,7 +173,16 @@
             debugLog("Creating game for player:", playerName);
             
             // Generate a unique game ID
-            const gameId = 'game_' + Math.random().toString(36).substr(2, 9);
+            let gameId;
+            
+            // Use generateUniqueId from firebase-config.js if available
+            if (typeof generateUniqueId === 'function') {
+                gameId = generateUniqueId();
+            } else {
+                // Fallback if the function isn't available
+                gameId = 'game_' + Math.random().toString(36).substr(2, 9);
+            }
+            
             debugLog("Generated game ID:", gameId);
             
             // Create the game URL
@@ -175,75 +197,89 @@
             if (typeof firebase !== 'undefined' && firebase.database) {
                 debugLog("Initializing game in Firebase");
                 
-                // Initialize empty board array
-                let board = [];
-                for (let i = 0; i < 24; i++) {
-                    board.push([]);
+                try {
+                    // Initialize empty board array
+                    let board = [];
+                    for (let i = 0; i < 24; i++) {
+                        board.push([]);
+                    }
+                    
+                    // White checkers
+                    for (let i = 0; i < 2; i++) board[0].push({ color: 'white' });
+                    for (let i = 0; i < 5; i++) board[11].push({ color: 'white' });
+                    for (let i = 0; i < 3; i++) board[16].push({ color: 'white' });
+                    for (let i = 0; i < 5; i++) board[18].push({ color: 'white' });
+                    
+                    // Black checkers
+                    for (let i = 0; i < 2; i++) board[23].push({ color: 'black' });
+                    for (let i = 0; i < 5; i++) board[12].push({ color: 'black' });
+                    for (let i = 0; i < 3; i++) board[7].push({ color: 'black' });
+                    for (let i = 0; i < 5; i++) board[5].push({ color: 'black' });
+                    
+                    // Create initial game state
+                    const initialState = {
+                        board: board,
+                        whiteBar: [],
+                        blackBar: [],
+                        whiteBearOff: [],
+                        blackBearOff: [],
+                        currentPlayer: 'player1',
+                        dice: [],
+                        diceRolled: false,
+                        gameStatus: "Waiting for player 2 to join...",
+                        player1Name: playerName,
+                        player2Name: "Player 2",
+                        gameStarted: false,
+                        timestamp: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    
+                    // Save to Firebase
+                    firebase.database().ref('games/' + gameId).set(initialState)
+                        .then(() => {
+                            debugLog("Game created successfully in Firebase");
+                        })
+                        .catch((error) => {
+                            console.error("Error creating game:", error);
+                        });
+                } catch (e) {
+                    console.error("Error setting up game:", e);
                 }
-                
-                // White checkers
-                for (let i = 0; i < 2; i++) board[0].push({ color: 'white' });
-                for (let i = 0; i < 5; i++) board[11].push({ color: 'white' });
-                for (let i = 0; i < 3; i++) board[16].push({ color: 'white' });
-                for (let i = 0; i < 5; i++) board[18].push({ color: 'white' });
-                
-                // Black checkers
-                for (let i = 0; i < 2; i++) board[23].push({ color: 'black' });
-                for (let i = 0; i < 5; i++) board[12].push({ color: 'black' });
-                for (let i = 0; i < 3; i++) board[7].push({ color: 'black' });
-                for (let i = 0; i < 5; i++) board[5].push({ color: 'black' });
-                
-                // Create initial game state
-                const initialState = {
-                    board: board,
-                    whiteBar: [],
-                    blackBar: [],
-                    whiteBearOff: [],
-                    blackBearOff: [],
-                    currentPlayer: 'player1',
-                    dice: [],
-                    diceRolled: false,
-                    gameStatus: "Waiting for player 2 to join...",
-                    player1Name: playerName,
-                    player2Name: "Player 2",
-                    gameStarted: false,
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                };
-                
-                // Save to Firebase
-                firebase.database().ref('games/' + gameId).set(initialState)
-                    .then(() => {
-                        debugLog("Game created successfully in Firebase");
-                    })
-                    .catch((error) => {
-                        console.error("Error creating game:", error);
-                    });
             } else {
                 console.warn("Firebase not initialized, game state won't be saved");
             }
+        }
+        
+        // Copy game link to clipboard
+        function copyGameLink() {
+            const gameUrl = document.getElementById('game-url').textContent;
             
-            // Set up the copy button
-            document.getElementById('copy-button').addEventListener('click', function() {
-                const tempInput = document.createElement('input');
-                tempInput.value = gameUrl;
-                document.body.appendChild(tempInput);
-                tempInput.select();
-                document.execCommand('copy');
-                document.body.removeChild(tempInput);
-                
-                const button = this;
-                const originalText = button.textContent;
-                button.textContent = 'Copied!';
-                setTimeout(() => {
-                    button.textContent = originalText;
-                }, 2000);
-            });
+            const tempInput = document.createElement('input');
+            tempInput.value = gameUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
             
-            // Set up the play button
-            document.getElementById('play-button').addEventListener('click', function() {
+            const button = document.getElementById('copy-button');
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            setTimeout(() => {
+                button.textContent = originalText;
+            }, 2000);
+            
+            debugLog("Game link copied to clipboard");
+        }
+        
+        // Go to the game
+        function goToGame() {
+            const gameUrl = document.getElementById('game-url').textContent;
+            if (gameUrl) {
+                debugLog("Navigating to game:", gameUrl);
                 window.location.href = gameUrl;
-            });
-        });
+            } else {
+                console.error("Game URL not found");
+            }
+        }
     </script>
 </body>
 </html>
