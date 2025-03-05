@@ -507,12 +507,15 @@ document.getElementById('join-button').addEventListener('click', function() {
         
         // Placeholder for canPlayerMove function
         function canPlayerMove() {
-            if (typeof playerRole === 'undefined') return false;
-            if (playerRole === "spectator") return false;
-            if (playerRole === "player1" && currentPlayer === "player1") return true;
-            if (playerRole === "player2" && currentPlayer === "player2") return true;
-            return false;
-        }
+    console.log("Checking if player can move:", 
+                "playerRole=", playerRole, 
+                "currentPlayer=", currentPlayer);
+    
+    if (playerRole === "spectator") return false;
+    if (playerRole === "player1" && currentPlayer === "player1") return true;
+    if (playerRole === "player2" && currentPlayer === "player2") return true;
+    return false;
+}
         
         // Initialize on page load
         window.onload = function() {
