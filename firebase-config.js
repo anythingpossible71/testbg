@@ -1,13 +1,12 @@
 // Firebase configuration
 // Replace with your Firebase project config
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    databaseURL: "YOUR_DATABASE_URL",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyDzxeti1Gv7p-8mfRi9tNfJvadEdPmKzdk",
+  authDomain: "backgammon-multiplayer.firebaseapp.com",
+  projectId: "backgammon-multiplayer",
+  storageBucket: "backgammon-multiplayer.firebasestorage.app",
+  messagingSenderId: "1044672583667",
+  appId: "1:1044672583667:web:dd3a74439036851f38e486"
 };
 
 // For now, we'll skip actual Firebase initialization
