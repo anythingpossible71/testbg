@@ -1,14 +1,13 @@
 // Firebase configuration
-// Replace with your Firebase project config
 const firebaseConfig = {
-  apiKey: "AIzaSyDzxeti1Gv7p-8mfRi9tNfJvadEdPmKzdk",
+  apiKey: "AIzaSyDxzet1iGv7p-8mfRi9tNfJvdEdPmkzdk",
   authDomain: "backgammon-multiplayer.firebaseapp.com",
   projectId: "backgammon-multiplayer",
   storageBucket: "backgammon-multiplayer.firebasestorage.app",
   messagingSenderId: "1044672583667",
-  appId: "1:1044672583667:web:dd3a74439036851f38e486"
+  appId: "1:1044672583667:web:dd3a7443903685f38e486",
+  databaseURL: "https://backgammon-multiplayer.firebaseio.com"
 };
-
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
@@ -155,9 +154,6 @@ function updateGameFromFirebase(gameData) {
     if (gameData.gameStarted) {
         gameStarted = true;
         
-        // Only update board state if needed
-        const shouldUpdateBoard = JSON.stringify(board) !== JSON.stringify(gameData.board);
-        
         // Update game state variables
         board = gameData.board || [];
         whiteBar = gameData.whiteBar || [];
@@ -181,11 +177,6 @@ function updateGameFromFirebase(gameData) {
         if (typeof updatePlayerInfo === 'function') updatePlayerInfo();
         if (typeof updateDiceDisplay === 'function') updateDiceDisplay();
         if (typeof updateGameStatus === 'function') updateGameStatus();
-        
-        // Check if game should be started
-        if (typeof checkAndStartGame === 'function') {
-            checkAndStartGame();
-        }
     }
 }
 
