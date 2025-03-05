@@ -1,11 +1,12 @@
-// Game configurations
-const BOARD_WIDTH = 800;
-const BOARD_HEIGHT = 600;
-const POINT_WIDTH = 50;
-const POINT_HEIGHT = 240;
-const CHECKER_RADIUS = 25;
-const BAR_WIDTH = 50;
-const BEAR_OFF_WIDTH = 80;
+// Game configurations - using var to avoid redeclaration errors
+// Check if variables already exist before declaring
+if (typeof BOARD_WIDTH === 'undefined') var BOARD_WIDTH = 800;
+if (typeof BOARD_HEIGHT === 'undefined') var BOARD_HEIGHT = 600;
+if (typeof POINT_WIDTH === 'undefined') var POINT_WIDTH = 50;
+if (typeof POINT_HEIGHT === 'undefined') var POINT_HEIGHT = 240;
+if (typeof CHECKER_RADIUS === 'undefined') var CHECKER_RADIUS = 25;
+if (typeof BAR_WIDTH === 'undefined') var BAR_WIDTH = 50;
+if (typeof BEAR_OFF_WIDTH === 'undefined') var BEAR_OFF_WIDTH = 80;
 
 // Initialize the game board
 function initializeBoard() {
@@ -32,7 +33,7 @@ function initializeBoard() {
     whiteBearOff = [];
     blackBearOff = [];
     
-    debugLog("Board initialized", { board: board });
+    debugLog("Board initialized:", { board: board });
 }
 
 // Drawing functions
@@ -290,22 +291,6 @@ function drawValidMoves() {
                 rect(0, BOARD_HEIGHT/2, BEAR_OFF_WIDTH, BOARD_HEIGHT/2);
             }
         }
-        
-        // Combined moves for bearing off
-        for (const combinedMove of combinedMoves) {
-            if ((playerColor === 'white' && combinedMove.targetIndex === 24) || 
-                (playerColor === 'black' && combinedMove.targetIndex === -1)) {
-                
-                noStroke();
-                fill(0, 255, 255, 100);
-                
-                if (playerColor === 'white') {
-                    rect(BOARD_WIDTH + BEAR_OFF_WIDTH, 0, BEAR_OFF_WIDTH, BOARD_HEIGHT/2);
-                } else {
-                    rect(0, BOARD_HEIGHT/2, BEAR_OFF_WIDTH, BOARD_HEIGHT/2);
-                }
-            }
-        }
     }
 }
 // Helper functions for board positions
@@ -336,6 +321,47 @@ function getCheckerY(pointIndex, checkerIndex) {
     }
 }
 
+// Check if both players have joined and force game to start if needed
+function checkAndStartGame() {
+    debugLog("Checking if game can start...");
+    debugLog("Player names:", { player1: player1Name, player2: player2Name });
+    
+    if (player1Name !== "Player 1" && player2Name !== "Player 2") {
+        debugLog("Both players have joined, forcing game to start");
+        
+        // Force UI update
+        gameStarted = true;
+        
+        // Hide waiting message for player 1
+        const waitingMessage = document.getElementById('waiting-message');
+        const playerJoin = document.getElementById('player-join');
+        const gameControls = document.getElementById('game-controls');
+        
+        if (waitingMessage) waitingMessage.classList.add('hidden');
+        if (playerJoin) playerJoin.classList.add('hidden');
+        if (gameControls) gameControls.classList.remove('hidden');
+        
+        // Enable roll button for player 1
+        if (currentPlayer === 'player1' && playerRole === 'player1') {
+            const rollButton = document.getElementById('roll-button');
+            if (rollButton) rollButton.disabled = false;
+        }
+        
+        // Update UI
+        const gameStatusEl = document.getElementById('game-status');
+        if (gameStatusEl) gameStatusEl.textContent = player1Name + "'s turn to roll";
+        
+        // Update other UI elements
+        if (typeof updatePlayerInfo === 'function') updatePlayerInfo();
+        if (typeof updateDiceDisplay === 'function') updateDiceDisplay();
+        
+        // Save game state
+        if (typeof saveGameState === 'function') {
+            saveGameState();
+        }
+    }
+}
+
 // p5.js setup function
 function setup() {
     debugLog("Setup function called");
@@ -352,11 +378,16 @@ function setup() {
     // Make sure the roll button is connected
     const rollButton = document.getElementById('roll-button');
     if (rollButton) {
-        if (typeof rollDice === 'function') {
-            rollButton.addEventListener('click', rollDice);
-        } else if (typeof window.rollDice === 'function') {
-            rollButton.addEventListener('click', window.rollDice);
-        }
+        rollButton.addEventListener('click', function() {
+            debugLog("Roll button clicked");
+            if (typeof rollDice === 'function') {
+                rollDice();
+            } else if (typeof window.rollDice === 'function') {
+                window.rollDice();
+            } else {
+                debugLog("rollDice function not found");
+            }
+        });
     }
     
     debugLog("Backgammon game initialized in setup");
@@ -398,6 +429,43 @@ function draw() {
     }
 }
 
+// Debug function to log current board state
+function debugBoard() {
+    console.log("===== BOARD STATE =====");
+    
+    console.log("White Bar:", whiteBar ? whiteBar.length : 0);
+    console.log("White Bear Off:", whiteBearOff ? whiteBearOff.length : 0);
+    
+    if (board) {
+        for (let i = 0; i < 24; i++) {
+            if (!board[i] || board[i].length === 0) continue;
+            
+            let point = board[i];
+            let whiteCount = 0;
+            let blackCount = 0;
+            
+            for (let j = 0; j < point.length; j++) {
+                if (point[j].color === 'white') {
+                    whiteCount++;
+                } else {
+                    blackCount++;
+                }
+            }
+            
+            if (whiteCount > 0) {
+                console.log(`Point ${i}: ${whiteCount} white`);
+            }
+            if (blackCount > 0) {
+                console.log(`Point ${i}: ${blackCount} black`);
+            }
+        }
+    }
+    
+    console.log("Black Bar:", blackBar ? blackBar.length : 0);
+    console.log("Black Bear Off:", blackBearOff ? blackBearOff.length : 0);
+    console.log("=======================");
+}
+
 // Make these functions globally accessible
 window.initializeBoard = initializeBoard;
 window.drawBoard = drawBoard;
@@ -409,5 +477,10 @@ window.drawValidMoves = drawValidMoves;
 window.getPointX = getPointX;
 window.getPointY = getPointY;
 window.getCheckerY = getCheckerY;
+window.checkAndStartGame = checkAndStartGame;
 window.setup = setup;
 window.draw = draw;
+window.debugBoard = debugBoard;
+
+// Log that the board functions have been loaded
+debugLog("Game board functions loaded successfully");
