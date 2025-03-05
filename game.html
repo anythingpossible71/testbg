@@ -111,11 +111,22 @@
         .hidden {
             display: none;
         }
+        #debug-info {
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            display: none;
+        }
     </style>
     
     <!-- IMPORTANT: Global variables to avoid redeclaration conflicts -->
     <script>
     // Global variables shared across all JS files
+    // Variables are declared once here to avoid redeclaration conflicts
     var gameId = null;
     var playerRole = "spectator";
     var player1Name = "Player 1";
@@ -130,20 +141,32 @@
     var whiteBearOff = [];
     var blackBearOff = [];
     var board = [];
-    var lastUpdateTimestamp = 0;
-    
-    // Ensure these variables exist
     var selectedChecker = null;
     var validMoves = [];
     var combinedMoves = [];
+    var lastUpdateTimestamp = 0;
+    
+    // Enable debug mode
+    var debugMode = true;
+    
+    // Debug logger function
+    function debugLog(message, data) {
+        if (!debugMode) return;
+        
+        if (data) {
+            console.log("[DEBUG] " + message, data);
+        } else {
+            console.log("[DEBUG] " + message);
+        }
+    }
     </script>
     
     <!-- Load p5.js for canvas drawing -->
     <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
     
-    <!-- Firebase SDK - Uncomment when ready to use Firebase -->
-    <!-- <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script> -->
-    <!-- <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script> -->
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 </head>
 <body>
     <div id="game-container">
@@ -188,6 +211,11 @@
             </div>
             
             <div id="game-status">Waiting for players...</div>
+            
+            <div style="margin-top: 10px; text-align: center;">
+                <button id="debug-button" style="background-color: #666;">Debug Info</button>
+                <div id="debug-info"></div>
+            </div>
         </div>
     </div>
 
@@ -211,9 +239,9 @@
         
         // Initialize from URL parameters
         function initFromUrl() {
-            console.log("Initializing from URL...");
+            debugLog("Initializing from URL...");
             const params = getUrlParams();
-            console.log("URL params:", params);
+            debugLog("URL params:", params);
             
             if (params.gameId) {
                 gameId = params.gameId;
@@ -230,6 +258,7 @@
                     
                     if (playerNum === 1) {
                         // Player 1 is joining
+                        debugLog("Joining as Player 1:", playerName);
                         player1Name = playerName;
                         playerRole = "player1";
                         
@@ -255,6 +284,7 @@
                     } 
                     else if (playerNum === 2) {
                         // Player 2 is joining with name
+                        debugLog("Joining as Player 2:", playerName);
                         player2Name = playerName;
                         playerRole = "player2";
                         
@@ -275,15 +305,27 @@
                     }
                 } else if (params.playerNum === '2') {
                     // Player 2 is joining - always show name entry form
+                    debugLog("Showing Player 2 join form");
                     document.getElementById('player-join').classList.remove('hidden');
                     document.getElementById('waiting-message').classList.add('hidden');
                     document.getElementById('name-entry').classList.remove('hidden');
                     document.getElementById('join-title').textContent = 'Join as Player 2';
                     document.getElementById('join-message').textContent = 'Enter your name to join this game:';
+                    
+                    // Load existing game state from Firebase
+                    if (typeof loadGameState === 'function') {
+                        loadGameState();
+                    }
                 } else {
                     // No player info, show join UI
+                    debugLog("No player info, showing join UI");
                     document.getElementById('player-join').classList.remove('hidden');
                     document.getElementById('join-message').textContent = 'Enter your name to join this game:';
+                    
+                    // Load existing game state from Firebase
+                    if (typeof loadGameState === 'function') {
+                        loadGameState();
+                    }
                 }
                 
                 // Set up Firebase listener for real-time updates
@@ -292,13 +334,14 @@
                 }
             } else {
                 // No game ID, redirect to index page
+                debugLog("No game ID, redirecting to index.html");
                 window.location.href = 'index.html';
             }
         }
         
         // Join button handler
         document.getElementById('join-button').addEventListener('click', function() {
-            console.log("Join button clicked");
+            debugLog("Join button clicked");
             const playerName = document.getElementById('player-name-input').value.trim();
             if (!playerName) {
                 alert('Please enter your name');
@@ -309,7 +352,7 @@
             
             // Determine if this is player 1 or player 2
             if (params.playerNum === '2' || window.location.href.includes('playerNum=2')) {
-                console.log("Joining as Player 2:", playerName);
+                debugLog("Joining as Player 2:", playerName);
                 // This is player 2
                 player2Name = playerName;
                 playerRole = "player2";
@@ -335,7 +378,7 @@
                 }
             } 
             else {
-                console.log("Joining as Player 1:", playerName);
+                debugLog("Joining as Player 1:", playerName);
                 // This is player 1
                 player1Name = playerName;
                 playerRole = "player1";
@@ -391,7 +434,7 @@
         
         // Start the game
         function startGame() {
-            console.log("Starting game with players:", player1Name, player2Name);
+            debugLog("Starting game with players:", { player1: player1Name, player2: player2Name });
             
             gameStarted = true;
             document.getElementById('game-status').textContent = 'Game started! Player 1 to roll.';
@@ -414,13 +457,64 @@
             updateGameStatus();
         }
         
+        // Force game to start when both players have joined
+        function checkAndStartGame() {
+            debugLog("Checking if game can start...");
+            debugLog("Player names:", { player1: player1Name, player2: player2Name });
+            
+            if (player1Name !== "Player 1" && player2Name !== "Player 2") {
+                debugLog("Both players have joined, forcing game to start");
+                
+                // Force UI update
+                gameStarted = true;
+                
+                // Hide waiting message for player 1
+                const waitingMessage = document.getElementById('waiting-message');
+                const playerJoin = document.getElementById('player-join');
+                const gameControls = document.getElementById('game-controls');
+                
+                if (waitingMessage) waitingMessage.classList.add('hidden');
+                if (playerJoin) playerJoin.classList.add('hidden');
+                if (gameControls) gameControls.classList.remove('hidden');
+                
+                // Enable roll button for player 1
+                if (currentPlayer === 'player1' && playerRole === 'player1') {
+                    const rollButton = document.getElementById('roll-button');
+                    if (rollButton) rollButton.disabled = false;
+                }
+                
+                // Update UI
+                document.getElementById('game-status').textContent = player1Name + "'s turn to roll";
+                
+                // Update other UI elements
+                updatePlayerInfo();
+                updateDiceDisplay();
+                
+                // Save game state
+                if (typeof saveGameState === 'function') {
+                    saveGameState();
+                }
+            }
+        }
+        
         // Backup rollDice function in case it's missing from game-logic.js
         function rollDiceBackup() {
-            console.log("Rolling dice (backup function)...");
+            debugLog("Rolling dice (backup function)...");
             
-            if (diceRolled) return;
-            if (whiteBearOff.length === 15 || blackBearOff.length === 15) return;
-            if (!canPlayerMove()) return;
+            if (diceRolled) {
+                debugLog("Dice already rolled, ignoring");
+                return;
+            }
+            if (whiteBearOff.length === 15 || blackBearOff.length === 15) {
+                debugLog("Game already won, ignoring dice roll");
+                return;
+            }
+            if (!canPlayerMove()) {
+                debugLog("Not your turn, ignoring dice roll");
+                return;
+            }
+            
+            debugLog("Rolling dice for player:", currentPlayer);
             
             const die1 = Math.floor(Math.random() * 6) + 1;
             const die2 = Math.floor(Math.random() * 6) + 1;
@@ -526,31 +620,81 @@
         
         // Backup function to check if player can move
         function canPlayerMove() {
+            debugLog("Can player move check:", { playerRole: playerRole, currentPlayer: currentPlayer });
+            
             if (typeof playerRole === 'undefined') return false;
             if (playerRole === "spectator") return false;
             if (playerRole === "player1" && currentPlayer === "player1") return true;
             if (playerRole === "player2" && currentPlayer === "player2") return true;
+            
             return false;
         }
+        
+        // Debug button handler
+        document.getElementById('debug-button').addEventListener('click', function() {
+            const debugInfo = document.getElementById('debug-info');
+            
+            if (debugInfo.style.display === 'block') {
+                debugInfo.style.display = 'none';
+                this.textContent = 'Debug Info';
+            } else {
+                // Update debug info
+                debugInfo.innerHTML = `
+                    <strong>Game ID:</strong> ${gameId}<br>
+                    <strong>Player Role:</strong> ${playerRole}<br>
+                    <strong>Player 1:</strong> ${player1Name}<br>
+                    <strong>Player 2:</strong> ${player2Name}<br>
+                    <strong>Game Started:</strong> ${gameStarted}<br>
+                    <strong>Current Player:</strong> ${currentPlayer}<br>
+                    <strong>Dice:</strong> ${JSON.stringify(dice)}<br>
+                    <strong>Dice Rolled:</strong> ${diceRolled}<br>
+                    <strong>Can Move:</strong> ${canPlayerMove()}<br>
+                `;
+                
+                debugInfo.style.display = 'block';
+                this.textContent = 'Hide Debug';
+                
+                // Force the game to start
+                checkAndStartGame();
+                
+                console.log("=== GAME STATE DEBUG ===");
+                console.log("gameId:", gameId);
+                console.log("playerRole:", playerRole);
+                console.log("player1Name:", player1Name);
+                console.log("player2Name:", player2Name);
+                console.log("gameStarted:", gameStarted);
+                console.log("currentPlayer:", currentPlayer);
+                console.log("dice:", dice);
+                console.log("diceRolled:", diceRolled);
+                console.log("Can player move:", canPlayerMove());
+                console.log("board:", board);
+            }
+        });
         
         // Ensure the roll button calls the rollDice function
         window.addEventListener('DOMContentLoaded', function() {
             const rollButton = document.getElementById('roll-button');
             if (rollButton) {
-                // Check if rollDice function exists in other scripts
-                if (typeof window.rollDice === 'function') {
-                    rollButton.addEventListener('click', window.rollDice);
-                } else {
-                    // Use backup implementation
-                    rollButton.addEventListener('click', rollDiceBackup);
-                }
-                console.log("Roll button event listener added");
+                // Direct roll button handler
+                rollButton.addEventListener('click', function() {
+                    debugLog("Roll button clicked directly");
+                    
+                    // Call the rollDice function if it exists
+                    if (typeof window.rollDice === 'function') {
+                        window.rollDice();
+                    } else {
+                        // Use backup implementation
+                        rollDiceBackup();
+                    }
+                });
+                
+                debugLog("Roll button event listener added");
             }
         });
         
         // Initialize on page load
         window.onload = function() {
-            console.log("Window loaded, initializing game...");
+            debugLog("Window loaded, initializing game...");
             initFromUrl();
         };
     </script>
