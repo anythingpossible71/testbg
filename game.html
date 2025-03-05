@@ -286,30 +286,27 @@ document.getElementById('join-button').addEventListener('click', function() {
         }
         
         // Save game state to Firebase (implement in firebase-config.js)
-        function saveGameState() {
-            console.log("Would save game state");
-            
-            // For Firebase implementation, uncomment this:
-            /*
-            if (!gameId) return;
-            
-            firebase.database().ref('games/' + gameId).update({
-                board: board,
-                whiteBar: whiteBar,
-                blackBar: blackBar,
-                whiteBearOff: whiteBearOff,
-                blackBearOff: blackBearOff,
-                currentPlayer: currentPlayer,
-                dice: dice,
-                diceRolled: diceRolled,
-                gameStatus: gameStatus,
-                player1Name: player1Name,
-                player2Name: player2Name,
-                gameStarted: gameStarted,
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-            */
-        }
+      function saveGameState() {
+    if (!gameId) return;
+    
+    console.log("Saving game state with player1Name:", player1Name);
+    
+    firebase.database().ref('games/' + gameId).update({
+        board: board,
+        whiteBar: whiteBar,
+        blackBar: blackBar,
+        whiteBearOff: whiteBearOff,
+        blackBearOff: blackBearOff,
+        currentPlayer: currentPlayer,
+        dice: dice,
+        diceRolled: diceRolled,
+        gameStatus: gameStatus,
+        player1Name: player1Name, // Make sure this is the correct name
+        player2Name: player2Name,
+        gameStarted: gameStarted,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    });
+}
         
         // Load existing game state from Firebase
         function loadGameState() {
