@@ -757,7 +757,14 @@ function canPlayerBearOff(playerColor) {
 
 function hasLegalMoves() {
     try {
+        // Safety checks for critical data structures
         if (!dice || !Array.isArray(dice) || dice.length === 0) {
+            console.log("No dice available, can't check for legal moves");
+            return false;
+        }
+        
+        if (!board || !Array.isArray(board)) {
+            console.error("Board is missing or not valid");
             return false;
         }
         
@@ -772,10 +779,10 @@ function hasLegalMoves() {
                 let die = dice[i];
                 let entryPoint = playerColor === 'white' ? die - 1 : 24 - die;
                 
-                if (entryPoint >= 0 && entryPoint < 24) {
+                if (entryPoint >= 0 && entryPoint < 24 && board[entryPoint]) { // Add board[entryPoint] check
                     if (board[entryPoint].length === 0 || 
-                        board[entryPoint][0].color === playerColor ||
-                        (board[entryPoint].length === 1 && board[entryPoint][0].color !== playerColor)) {
+                        (board[entryPoint][0] && board[entryPoint][0].color === playerColor) ||
+                        (board[entryPoint].length === 1 && board[entryPoint][0] && board[entryPoint][0].color !== playerColor)) {
                         console.log("Legal move from bar found");
                         return true;
                     }
@@ -786,19 +793,25 @@ function hasLegalMoves() {
             return false;
         }
         
+        // Safety check each board point before accessing
+        for (let i = 0; i < 24; i++) {
+            if (!board[i]) {
+                console.log("Board point", i, "is undefined, fixing");
+                board[i] = [];
+            }
+        }
+        
         // Check for bearing off
         let canBearOff = canPlayerBearOff(playerColor);
         if (canBearOff) {
-            console.log("Player can bear off, checking if there are legal bearing off moves");
+            console.log("Player can bear off, checking for legal bearing off moves");
             if (playerColor === 'white') {
                 for (let i = 18; i <= 23; i++) {
                     if (!board[i]) continue;
                     for (let j = 0; j < board[i].length; j++) {
-                        if (board[i][j].color === 'white') {
+                        if (board[i][j] && board[i][j].color === 'white') {
                             for (let k = 0; k < dice.length; k++) {
-                                let die = dice[k];
-                                if (isValidBearOff(i, die, playerColor)) {
-                                    console.log("Legal bearing off move found for white");
+                                if (isValidBearOff(i, dice[k], playerColor)) {
                                     return true;
                                 }
                             }
@@ -809,11 +822,9 @@ function hasLegalMoves() {
                 for (let i = 0; i <= 5; i++) {
                     if (!board[i]) continue;
                     for (let j = 0; j < board[i].length; j++) {
-                        if (board[i][j].color === 'black') {
+                        if (board[i][j] && board[i][j].color === 'black') {
                             for (let k = 0; k < dice.length; k++) {
-                                let die = dice[k];
-                                if (isValidBearOff(i, die, playerColor)) {
-                                    console.log("Legal bearing off move found for black");
+                                if (isValidBearOff(i, dice[k], playerColor)) {
                                     return true;
                                 }
                             }
@@ -827,16 +838,16 @@ function hasLegalMoves() {
         for (let i = 0; i < 24; i++) {
             if (!board[i]) continue;
             for (let j = 0; j < board[i].length; j++) {
-                if (board[i][j].color === playerColor) {
+                if (board[i][j] && board[i][j].color === playerColor) {
                     for (let k = 0; k < dice.length; k++) {
                         let die = dice[k];
                         let direction = playerColor === 'white' ? 1 : -1;
                         let targetIndex = i + (die * direction);
                         
-                        if (targetIndex >= 0 && targetIndex < 24) {
+                        if (targetIndex >= 0 && targetIndex < 24 && board[targetIndex]) { // Add board[targetIndex] check
                             if (board[targetIndex].length === 0 || 
-                                board[targetIndex][0].color === playerColor ||
-                                (board[targetIndex].length === 1 && board[targetIndex][0].color !== playerColor)) {
+                                (board[targetIndex][0] && board[targetIndex][0].color === playerColor) ||
+                                (board[targetIndex].length === 1 && board[targetIndex][0] && board[targetIndex][0].color !== playerColor)) {
                                 console.log("Legal regular move found from point", i, "to", targetIndex);
                                 return true;
                             }
@@ -850,6 +861,7 @@ function hasLegalMoves() {
         return false;
     } catch (error) {
         console.error("Error in hasLegalMoves:", error);
+        // If there's an error, assume there are no legal moves
         return false;
     }
 }// game-logic.js (Part 5) - Final helper functions
