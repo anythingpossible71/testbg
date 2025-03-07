@@ -739,6 +739,126 @@ window.addEventListener('DOMContentLoaded', function() {
     }, 2000); // Wait 2 seconds to ensure all other scripts have loaded
 });
 </script>
+
+
+    <script>
+// Board recovery script
+(function() {
+    // Keep a local backup of the last valid board state
+    let boardBackup = null;
+    let backupTimestamp = 0;
+    
+    // Function to backup current board state
+    function backupBoardState() {
+        if (board && Array.isArray(board) && board.length === 24) {
+            // Deep clone the board to avoid reference issues
+            const clone = [];
+            for (let i = 0; i < board.length; i++) {
+                if (Array.isArray(board[i])) {
+                    clone[i] = [];
+                    for (let j = 0; j < board[i].length; j++) {
+                        if (board[i][j] && board[i][j].color) {
+                            clone[i][j] = { color: board[i][j].color };
+                        }
+                    }
+                } else {
+                    clone[i] = [];
+                }
+            }
+            
+            boardBackup = clone;
+            backupTimestamp = Date.now();
+            console.log("Board state backed up successfully");
+        }
+    }
+    
+    // Function to restore board from backup
+    function restoreBoardFromBackup() {
+        if (boardBackup && Array.isArray(boardBackup) && boardBackup.length === 24) {
+            console.log("Restoring board from backup");
+            
+            // Ensure board exists and is an array
+            if (!board || !Array.isArray(board) || board.length !== 24) {
+                board = [];
+                for (let i = 0; i < 24; i++) {
+                    board[i] = [];
+                }
+            }
+            
+            // Copy from backup to board
+            for (let i = 0; i < 24; i++) {
+                if (!board[i]) board[i] = [];
+                
+                if (Array.isArray(boardBackup[i])) {
+                    // Clear current points
+                    board[i] = [];
+                    
+                    // Copy from backup
+                    for (let j = 0; j < boardBackup[i].length; j++) {
+                        if (boardBackup[i][j] && boardBackup[i][j].color) {
+                            board[i].push({ color: boardBackup[i][j].color });
+                        }
+                    }
+                }
+            }
+            
+            console.log("Board restored from backup");
+            
+            // Save the restored board to Firebase
+            if (typeof saveGameState === 'function') {
+                setTimeout(function() {
+                    saveGameState();
+                }, 1000);
+            }
+        } else {
+            console.log("No valid board backup available, initializing new board");
+            initializeBoard();
+        }
+    }
+    
+    // Check board state periodically (every 5 seconds)
+    setInterval(function() {
+        // Check if board is in a valid state
+        const isValidBoard = board && Array.isArray(board) && board.length === 24 &&
+            board.some(point => Array.isArray(point) && point.length > 0);
+        
+        if (isValidBoard) {
+            // Board is valid, create a backup
+            backupBoardState();
+        } else {
+            // Board is invalid, restore from backup
+            console.log("Board is invalid, attempting to restore");
+            restoreBoardFromBackup();
+        }
+    }, 5000);
+    
+    // Intercept processFirebaseUpdate to check board validity
+    if (typeof window.processFirebaseUpdate === 'function') {
+        const originalProcessUpdate = window.processFirebaseUpdate;
+        
+        window.processFirebaseUpdate = function(gameData) {
+            // Backup current board before updating
+            backupBoardState();
+            
+            // Call original function
+            originalProcessUpdate(gameData);
+            
+            // Verify board state after update
+            setTimeout(function() {
+                const isValidBoard = board && Array.isArray(board) && board.length === 24 &&
+                    board.some(point => Array.isArray(point) && point.length > 0);
+                
+                if (!isValidBoard) {
+                    console.log("Board became invalid after update, restoring");
+                    restoreBoardFromBackup();
+                }
+            }, 500);
+        };
+    }
+    
+    console.log("Board recovery system installed");
+})();
+</script>
     
 </body>
 </html>
