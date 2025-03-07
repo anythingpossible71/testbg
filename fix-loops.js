@@ -1,336 +1,443 @@
-// fix-loops.js - Add this as a separate script at the bottom of game.html
-// This script fixes the infinite loop issues by adding safety measures
+// fix-loops.js - Fixes for backgammon game issues
+// This script should be added at the bottom of game.html before the closing </body> tag
 
-(function() {
-    console.log("Loading backgammon infinite loop protections...");
-    
-    // -------------------------------
-    // Global performance safeguards
-    // -------------------------------
-    
-    // Prevent too many redraws
-    const MAX_FPS = 30;
-    let lastFrameTime = 0;
-    
-    // Store original draw function
-    if (typeof window.draw === 'function' && !window.originalDraw) {
-        window.originalDraw = window.draw;
-        
-        // Replace with rate-limited version
-        window.draw = function() {
-            const now = performance.now();
-            if (now - lastFrameTime < 1000 / MAX_FPS) {
-                return; // Skip this frame
+// Fix for duplicate variable declarations
+// Set these variables only if they don't already exist
+window.BOARD_WIDTH = window.BOARD_WIDTH || 800;
+window.BOARD_HEIGHT = window.BOARD_HEIGHT || 600;
+window.POINT_WIDTH = window.POINT_WIDTH || 50;
+window.POINT_HEIGHT = window.POINT_HEIGHT || 240;
+window.CHECKER_RADIUS = window.CHECKER_RADIUS || 25;
+window.BAR_WIDTH = window.BAR_WIDTH || 50;
+window.BEAR_OFF_WIDTH = window.BEAR_OFF_WIDTH || 80;
+
+console.log("Loading backgammon infinite loop protections...");
+
+// -------------------------------
+// Board state protection
+// -------------------------------
+
+// Keep a local backup of the last valid board state
+let boardBackup = null;
+let backupTimestamp = 0;
+
+// Function to backup current board state
+function backupBoardState() {
+    if (window.board && Array.isArray(window.board) && window.board.length === 24) {
+        // Check if board has any pieces before backing up
+        let hasPieces = false;
+        for (let i = 0; i < window.board.length; i++) {
+            if (Array.isArray(window.board[i]) && window.board[i].length > 0) {
+                hasPieces = true;
+                break;
             }
-            lastFrameTime = now;
-            
-            try {
-                window.originalDraw();
-            } catch (error) {
-                console.error("Error in draw function:", error);
-            }
-        };
-    }
-    
-    // Prevent console log flood
-    const MAX_LOGS_PER_SECOND = 5;
-    const logThrottleMap = new Map();
-    const originalConsoleLog = console.log;
-    
-    console.log = function(...args) {
-        const now = Date.now();
-        const message = args[0] || '';
-        const messageKey = typeof message === 'string' ? message.substring(0, 50) : 'non-string-message';
-        
-        // Always log errors
-        if (typeof message === 'string' && 
-            (message.includes('error') || message.includes('Error') || 
-             message.includes('exception') || message.includes('Exception'))) {
-            return originalConsoleLog.apply(console, args);
         }
         
-        // Check if we've logged this message recently
-        const lastLog = logThrottleMap.get(messageKey);
-        if (!lastLog || now - lastLog.time > 1000 / MAX_LOGS_PER_SECOND) {
-            logThrottleMap.set(messageKey, { time: now, count: 1 });
-            return originalConsoleLog.apply(console, args);
-        } 
+        if (hasPieces) {
+            // Deep clone the board to avoid reference issues
+            const clone = [];
+            for (let i = 0; i < window.board.length; i++) {
+                if (Array.isArray(window.board[i])) {
+                    clone[i] = [];
+                    for (let j = 0; j < window.board[i].length; j++) {
+                        if (window.board[i][j] && window.board[i][j].color) {
+                            clone[i][j] = { color: window.board[i][j].color };
+                        }
+                    }
+                } else {
+                    clone[i] = [];
+                }
+            }
+            
+            boardBackup = clone;
+            backupTimestamp = Date.now();
+            console.log("Board state backed up successfully");
+        }
+    }
+}
+
+// Function to restore board from backup
+function restoreBoardFromBackup() {
+    if (boardBackup && Array.isArray(boardBackup) && boardBackup.length === 24) {
+        console.log("Restoring board from backup");
         
-        // Update count but don't log
-        const newCount = lastLog.count + 1;
-        logThrottleMap.set(messageKey, { time: lastLog.time, count: newCount });
+        // Ensure board exists and is an array
+        if (!window.board || !Array.isArray(window.board) || window.board.length !== 24) {
+            window.board = [];
+            for (let i = 0; i < 24; i++) {
+                window.board[i] = [];
+            }
+        }
         
-        // Every 100 skipped logs, show a summary
-        if (newCount % 100 === 0) {
-            originalConsoleLog.call(console, `[Skipped ${newCount} similar logs] ${message}`);
+        // Copy from backup to board
+        for (let i = 0; i < 24; i++) {
+            if (!window.board[i]) window.board[i] = [];
+            
+            if (Array.isArray(boardBackup[i])) {
+                // Clear current points
+                window.board[i] = [];
+                
+                // Copy from backup
+                for (let j = 0; j < boardBackup[i].length; j++) {
+                    if (boardBackup[i][j] && boardBackup[i][j].color) {
+                        window.board[i].push({ color: boardBackup[i][j].color });
+                    }
+                }
+            }
+        }
+        
+        console.log("Board restored from backup");
+        
+        // Save the restored board to Firebase
+        if (typeof window.saveGameState === 'function') {
+            setTimeout(function() {
+                window.saveGameState();
+            }, 1000);
+        }
+    } else if (typeof window.initializeBoard === 'function') {
+        console.log("No valid board backup available, initializing new board");
+        window.initializeBoard();
+    }
+}
+
+// Check if board is valid
+function isValidBoard() {
+    if (!window.board || !Array.isArray(window.board) || window.board.length !== 24) {
+        return false;
+    }
+    
+    // Check if any point has pieces
+    for (let i = 0; i < window.board.length; i++) {
+        if (Array.isArray(window.board[i]) && window.board[i].length > 0) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// -------------------------------
+// Global performance safeguards
+// -------------------------------
+
+// Prevent too many redraws
+const MAX_FPS = 30;
+let lastFrameTime = 0;
+
+// Store original draw function
+if (typeof window.draw === 'function' && !window.originalDraw) {
+    window.originalDraw = window.draw;
+    
+    // Replace with rate-limited version
+    window.draw = function() {
+        const now = performance.now();
+        if (now - lastFrameTime < 1000 / MAX_FPS) {
+            return; // Skip this frame
+        }
+        lastFrameTime = now;
+        
+        try {
+            window.originalDraw();
+        } catch (error) {
+            console.error("Error in draw function:", error);
         }
     };
+}
+
+// Prevent console log flood
+const MAX_LOGS_PER_SECOND = 5;
+const logThrottleMap = new Map();
+const originalConsoleLog = console.log;
+
+console.log = function(...args) {
+    const now = Date.now();
+    const message = args[0] || '';
+    const messageKey = typeof message === 'string' ? message.substring(0, 50) : 'non-string-message';
     
-    // -------------------------------
-    // Firebase safety measures
-    // -------------------------------
-    
-    // Prevent Firebase update loops by throttling
-    let lastSaveTime = 0;
-    const MIN_SAVE_INTERVAL = 3000; // 3 seconds between saves
-    
-    // Safely override saveGameState function if it exists
-    if (typeof window.saveGameState === 'function' && !window.originalSaveGameState) {
-        window.originalSaveGameState = window.saveGameState;
-        
-        window.saveGameState = function() {
-            const now = Date.now();
-            if (now - lastSaveTime < MIN_SAVE_INTERVAL) {
-                console.log("Skipping Firebase save (too soon)");
-                return;
-            }
-            
-            lastSaveTime = now;
-            
-            try {
-                // Add a version number if not already there
-                if (!window.gameStateVersion) {
-                    window.gameStateVersion = 1;
-                } else {
-                    window.gameStateVersion++;
-                }
-                
-                // Call original function
-                window.originalSaveGameState();
-            } catch (error) {
-                console.error("Error in saveGameState:", error);
-            }
-        };
+    // Always log errors
+    if (typeof message === 'string' && 
+        (message.includes('error') || message.includes('Error') || 
+         message.includes('exception') || message.includes('Exception'))) {
+        return originalConsoleLog.apply(console, args);
     }
     
-    // -------------------------------
-    // Roll dice protection
-    // -------------------------------
+    // Check if we've logged this message recently
+    const lastLog = logThrottleMap.get(messageKey);
+    if (!lastLog || now - lastLog.time > 1000 / MAX_LOGS_PER_SECOND) {
+        logThrottleMap.set(messageKey, { time: now, count: 1 });
+        return originalConsoleLog.apply(console, args);
+    } 
     
-    // Prevent roll dice loops and double-clicks
-    let lastRollTime = 0;
-    const MIN_ROLL_INTERVAL = 2000; // 2 seconds between rolls
-    let isRolling = false;
+    // Update count but don't log
+    const newCount = lastLog.count + 1;
+    logThrottleMap.set(messageKey, { time: lastLog.time, count: newCount });
     
-    // Safely override rollDice function if it exists
-    if (typeof window.rollDice === 'function' && !window.originalRollDice) {
-        window.originalRollDice = window.rollDice;
-        
-        window.rollDice = function() {
-            const now = Date.now();
-            
-            // Skip if already rolling or too soon after last roll
-            if (isRolling || now - lastRollTime < MIN_ROLL_INTERVAL) {
-                console.log("Skipping roll (in progress or too soon)");
-                return;
-            }
-            
-            isRolling = true;
-            lastRollTime = now;
-            
-            try {
-                window.originalRollDice();
-            } catch (error) {
-                console.error("Error in rollDice:", error);
-            } finally {
-                // Release the lock after a delay
-                setTimeout(() => {
-                    isRolling = false;
-                }, 1000);
-            }
-        };
+    // Every 100 skipped logs, show a summary
+    if (newCount % 100 === 0) {
+        originalConsoleLog.call(console, `[Skipped ${newCount} similar logs] ${message}`);
     }
+};
+
+// -------------------------------
+// Firebase safety measures
+// -------------------------------
+
+// Prevent Firebase update loops by throttling
+let lastSaveTime = 0;
+const MIN_SAVE_INTERVAL = 3000; // 3 seconds between saves
+
+// Safely override saveGameState function if it exists
+if (typeof window.saveGameState === 'function' && !window.originalSaveGameState) {
+    window.originalSaveGameState = window.saveGameState;
     
-    // -------------------------------
-    // Button click protections
-    // -------------------------------
+    window.saveGameState = function() {
+        const now = Date.now();
+        if (now - lastSaveTime < MIN_SAVE_INTERVAL) {
+            console.log("Throttling game state save (too recent)");
+            return;
+        }
+        
+        // Check if board is valid before saving
+        if (!isValidBoard() && boardBackup) {
+            console.log("Board is invalid, restoring from backup before saving");
+            restoreBoardFromBackup();
+        }
+        
+        lastSaveTime = now;
+        
+        try {
+            // Add a version number if not already there
+            if (!window.gameStateVersion) {
+                window.gameStateVersion = 1;
+            } else {
+                window.gameStateVersion++;
+            }
+            
+            // Backup board before saving
+            backupBoardState();
+            
+            // Call original function
+            window.originalSaveGameState();
+        } catch (error) {
+            console.error("Error in saveGameState:", error);
+        }
+    };
+}
+
+// Intercept processFirebaseUpdate to check board validity
+if (typeof window.processFirebaseUpdate === 'function' && !window.originalProcessFirebaseUpdate) {
+    window.originalProcessFirebaseUpdate = window.processFirebaseUpdate;
     
-    // Prevent double-clicks on buttons
-    const safeAddClickHandler = function(buttonId, handler) {
-        const button = document.getElementById(buttonId);
-        if (!button) return;
+    window.processFirebaseUpdate = function(gameData) {
+        // Backup current board before updating
+        backupBoardState();
         
-        // Remove existing handlers by cloning
-        const newButton = button.cloneNode(true);
-        button.parentNode.replaceChild(newButton, button);
+        // Call original function
+        window.originalProcessFirebaseUpdate(gameData);
         
-        // Set click tracking
-        let lastClickTime = 0;
-        const MIN_CLICK_INTERVAL = 1000; // 1 second
+        // Verify board state after update
+        setTimeout(function() {
+            if (!isValidBoard()) {
+                console.log("Board became invalid after update, restoring");
+                restoreBoardFromBackup();
+            }
+        }, 500);
+    };
+}
+
+// -------------------------------
+// Roll dice protection
+// -------------------------------
+
+// Prevent roll dice loops and double-clicks
+let lastRollTime = 0;
+const MIN_ROLL_INTERVAL = 2000; // 2 seconds between rolls
+let isRolling = false;
+
+// Safely override rollDice function if it exists
+if (typeof window.rollDice === 'function' && !window.originalRollDice) {
+    window.originalRollDice = window.rollDice;
+    
+    window.rollDice = function() {
+        const now = Date.now();
         
-        // Add new handler with throttling
-        newButton.addEventListener('click', function(event) {
-            const now = Date.now();
-            if (now - lastClickTime < MIN_CLICK_INTERVAL) {
-                console.log(`Ignoring rapid click on ${buttonId}`);
-                event.preventDefault();
-                event.stopPropagation();
+        // Skip if already rolling or too soon after last roll
+        if (isRolling || now - lastRollTime < MIN_ROLL_INTERVAL) {
+            console.log("Skipping roll (in progress or too soon)");
+            return;
+        }
+        
+        // Check if board is valid before rolling
+        if (!isValidBoard() && boardBackup) {
+            console.log("Board is invalid, restoring from backup before rolling");
+            restoreBoardFromBackup();
+        }
+        
+        isRolling = true;
+        lastRollTime = now;
+        
+        try {
+            window.originalRollDice();
+        } catch (error) {
+            console.error("Error in rollDice:", error);
+        } finally {
+            // Release the lock after a delay
+            setTimeout(() => {
+                isRolling = false;
+            }, 1000);
+        }
+    };
+}
+
+// Fix the hasLegalMoves function to handle null/undefined values
+if (typeof window.hasLegalMoves === 'function' && !window.originalHasLegalMoves) {
+    window.originalHasLegalMoves = window.hasLegalMoves;
+    
+    window.hasLegalMoves = function() {
+        // Ensure board is valid before checking
+        if (!isValidBoard() && boardBackup) {
+            console.log("Board is invalid, restoring from backup before checking moves");
+            restoreBoardFromBackup();
+        }
+        
+        try {
+            // Make sure dice exists
+            if (!window.dice || !Array.isArray(window.dice) || window.dice.length === 0) {
+                console.log("No dice available, can't check for legal moves");
                 return false;
             }
             
-            lastClickTime = now;
-            return handler.call(this, event);
-        });
-        
-        console.log(`Safe click handler added to ${buttonId}`);
-    };
-    
-    // Wait for DOM to be loaded
-    const initSafeHandlers = function() {
-        // Safe roll button handler
-        safeAddClickHandler('roll-button', function() {
-            console.log("Roll button clicked (safe handler)");
-            if (typeof window.rollDice === 'function') {
-                window.rollDice();
-            } else {
-                console.error("rollDice function not found");
-            }
-        });
-        
-        // Safe join button handler
-        safeAddClickHandler('join-button', function() {
-            console.log("Join button clicked (safe handler)");
-            const playerNameInput = document.getElementById('player-name-input');
-            if (!playerNameInput) return;
+            let playerColor = window.currentPlayer === 'player1' ? 'white' : 'black';
+            console.log("Checking if player has legal moves. Color:", playerColor);
             
-            const playerName = playerNameInput.value.trim();
-            if (!playerName) {
-                alert('Please enter your name');
-                return;
-            }
-            
-            // Handle join logic based on URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const playerNum = urlParams.get('playerNum');
-            
-            if (playerNum === '2' || window.location.href.includes('playerNum=2')) {
-                // This is player 2
-                window.player2Name = playerName;
-                window.playerRole = "player2";
+            // Check if player has checkers on the bar
+            if ((playerColor === 'white' && window.whiteBar && window.whiteBar.length > 0) || 
+                (playerColor === 'black' && window.blackBar && window.blackBar.length > 0)) {
                 
-                // Update UI
-                const playerJoinElement = document.getElementById('player-join');
-                const gameControlsElement = document.getElementById('game-controls');
-                const player2NameElement = document.getElementById('player2-name');
-                
-                if (playerJoinElement) playerJoinElement.classList.add('hidden');
-                if (gameControlsElement) gameControlsElement.classList.remove('hidden');
-                if (player2NameElement) player2NameElement.textContent = playerName;
-            } else {
-                // This is player 1
-                window.player1Name = playerName;
-                window.playerRole = "player1";
-                
-                // Update UI
-                const nameEntryElement = document.getElementById('name-entry');
-                const waitingMessageElement = document.getElementById('waiting-message');
-                const joinTitleElement = document.getElementById('join-title');
-                const player1NameElement = document.getElementById('player1-name');
-                
-                if (nameEntryElement) nameEntryElement.classList.add('hidden');
-                if (waitingMessageElement) waitingMessageElement.classList.remove('hidden');
-                if (joinTitleElement) joinTitleElement.textContent = `Welcome, ${playerName}!`;
-                if (player1NameElement) player1NameElement.textContent = playerName;
-            }
-            
-            // Save game state once with the updated player info
-            setTimeout(function() {
-                if (typeof window.saveGameState === 'function') {
-                    window.saveGameState();
+                for (let i = 0; i < window.dice.length; i++) {
+                    let die = window.dice[i];
+                    let entryPoint = playerColor === 'white' ? die - 1 : 24 - die;
+                    
+                    if (entryPoint >= 0 && entryPoint < 24 && window.board[entryPoint]) {
+                        if (window.board[entryPoint].length === 0 || 
+                            (window.board[entryPoint][0] && window.board[entryPoint][0].color === playerColor) ||
+                            (window.board[entryPoint].length === 1 && window.board[entryPoint][0] && 
+                             window.board[entryPoint][0].color !== playerColor)) {
+                            console.log("Legal move from bar found");
+                            return true;
+                        }
+                    }
                 }
-            }, 500);
-        });
-    };
-    
-    // Execute when DOM is loaded
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initSafeHandlers);
-    } else {
-        // DOM already loaded, run now
-        initSafeHandlers();
-    }
-    
-    // -------------------------------
-    // Mouse event protection
-    // -------------------------------
-    
-    // Prevent too many mouse events
-    let lastMouseEvent = 0;
-    const MIN_MOUSE_INTERVAL = 100; // 100ms between mouse events
-    
-    // Safe wrappers for mouse functions
-    if (typeof window.mousePressed === 'function' && !window.originalMousePressed) {
-        window.originalMousePressed = window.mousePressed;
-        
-        window.mousePressed = function() {
-            const now = Date.now();
-            if (now - lastMouseEvent < MIN_MOUSE_INTERVAL) {
-                return; // Skip if too frequent
-            }
-            lastMouseEvent = now;
-            
-            try {
-                window.originalMousePressed();
-            } catch (error) {
-                console.error("Error in mousePressed:", error);
-            }
-        };
-    }
-    
-    if (typeof window.mouseReleased === 'function' && !window.originalMouseReleased) {
-        window.originalMouseReleased = window.mouseReleased;
-        
-        window.mouseReleased = function() {
-            const now = Date.now();
-            if (now - lastMouseEvent < MIN_MOUSE_INTERVAL) {
-                return; // Skip if too frequent
-            }
-            lastMouseEvent = now;
-            
-            try {
-                window.originalMouseReleased();
-            } catch (error) {
-                console.error("Error in mouseReleased:", error);
-            }
-        };
-    }
-    
-    // -------------------------------
-    // Setup execution protection
-    // -------------------------------
-    
-    // Ensure setup only runs once
-    let setupExecuted = false;
-    
-    if (typeof window.setup === 'function' && !window.originalSetup) {
-        window.originalSetup = window.setup;
-        
-        window.setup = function() {
-            if (setupExecuted) {
-                console.log("Setup already executed, skipping");
-                return;
+                
+                console.log("No legal moves from bar");
+                return false;
             }
             
-            setupExecuted = true;
-            console.log("Running setup once");
-            
-            try {
-                window.originalSetup();
-            } catch (error) {
-                console.error("Error in setup:", error);
+            // Safety check each board point before accessing
+            for (let i = 0; i < 24; i++) {
+                if (!window.board[i]) {
+                    window.board[i] = [];
+                }
             }
-        };
-    }
-    
-    // Set a limit on the framerate for p5.js if available
-    if (typeof frameRate === 'function') {
-        try {
-            frameRate(30);
-            console.log("Frame rate limited to 30 FPS");
-        } catch (e) {
-            console.warn("Could not limit frame rate:", e);
+            
+            // Check for regular moves
+            for (let i = 0; i < 24; i++) {
+                for (let j = 0; j < window.board[i].length; j++) {
+                    if (window.board[i][j] && window.board[i][j].color === playerColor) {
+                        for (let k = 0; k < window.dice.length; k++) {
+                            let die = window.dice[k];
+                            let direction = playerColor === 'white' ? 1 : -1;
+                            let targetIndex = i + (die * direction);
+                            
+                            if (targetIndex >= 0 && targetIndex < 24 && window.board[targetIndex]) {
+                                if (window.board[targetIndex].length === 0 || 
+                                    (window.board[targetIndex][0] && window.board[targetIndex][0].color === playerColor) ||
+                                    (window.board[targetIndex].length === 1 && window.board[targetIndex][0] && 
+                                     window.board[targetIndex][0].color !== playerColor)) {
+                                    console.log("Legal regular move found from point", i, "to", targetIndex);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Check for bearing off (simplified)
+            if (typeof window.canPlayerBearOff === 'function' && window.canPlayerBearOff(playerColor)) {
+                console.log("Player can bear off, assuming there's at least one legal move");
+                return true;
+            }
+            
+            console.log("No legal moves found");
+            return false;
+        } catch (error) {
+            console.error("Error in hasLegalMoves:", error);
+            return false;
         }
-    }
+    };
+}
+
+// -------------------------------
+// Setup execution protection
+// -------------------------------
+
+// Ensure setup only runs once
+let setupExecuted = false;
+
+if (typeof window.setup === 'function' && !window.originalSetup) {
+    window.originalSetup = window.setup;
     
-    console.log("Backgammon infinite loop protections installed successfully");
-})();
+    window.setup = function() {
+        if (setupExecuted) {
+            console.log("Setup already executed, skipping");
+            return;
+        }
+        
+        setupExecuted = true;
+        console.log("Running setup once");
+        
+        try {
+            window.originalSetup();
+            
+            // After setup completes, initialize board if needed
+            setTimeout(() => {
+                if (!isValidBoard() && typeof window.initializeBoard === 'function') {
+                    console.log("Board is invalid after setup, initializing");
+                    window.initializeBoard();
+                    
+                    // Then back it up
+                    setTimeout(backupBoardState, 500);
+                } else {
+                    // Just back up existing board
+                    backupBoardState();
+                }
+            }, 1000);
+        } catch (error) {
+            console.error("Error in setup:", error);
+        }
+    };
+}
+
+// Set a limit on the framerate for p5.js if available
+if (typeof frameRate === 'function') {
+    try {
+        frameRate(30);
+        console.log("Frame rate limited to 30 FPS");
+    } catch (e) {
+        console.warn("Could not limit frame rate:", e);
+    }
+}
+
+// Periodically check board state
+setInterval(function() {
+    if (!isValidBoard()) {
+        console.log("Periodic check found invalid board, restoring");
+        restoreBoardFromBackup();
+    } else {
+        // Board is valid, create a backup
+        backupBoardState();
+    }
+}, 10000); // Check every 10 seconds
+
+console.log("Backgammon fixes and protections installed successfully");
