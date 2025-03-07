@@ -127,31 +127,41 @@
     <script>
     // Global variables shared across all JS files
     // Variables are declared once here to avoid redeclaration conflicts
-    var gameId = null;
-    var playerRole = "spectator";
-    var player1Name = "Player 1";
-    var player2Name = "Player 2";
-    var gameStarted = false;
-    var currentPlayer = 'player1';
-    var dice = [];
-    var diceRolled = false;
-    var gameStatus = "Waiting for players...";
-    var whiteBar = [];
-    var blackBar = [];
-    var whiteBearOff = [];
-    var blackBearOff = [];
-    var board = [];
-    var selectedChecker = null;
-    var validMoves = [];
-    var combinedMoves = [];
-    var lastUpdateTimestamp = 0;
+    window.gameId = null;
+    window.playerRole = "spectator";
+    window.player1Name = "Player 1";
+    window.player2Name = "Player 2";
+    window.gameStarted = false;
+    window.currentPlayer = 'player1';
+    window.dice = [];
+    window.diceRolled = false;
+    window.gameStatus = "Waiting for players...";
+    window.whiteBar = [];
+    window.blackBar = [];
+    window.whiteBearOff = [];
+    window.blackBearOff = [];
+    window.board = [];
+    window.selectedChecker = null;
+    window.validMoves = [];
+    window.combinedMoves = [];
+    window.lastUpdateTimestamp = 0;
+    window.gameStateVersion = 0;
+    
+    // Board dimensions (to avoid redeclaration)
+    window.BOARD_WIDTH = 800;
+    window.BOARD_HEIGHT = 600;
+    window.POINT_WIDTH = 50;
+    window.POINT_HEIGHT = 240;
+    window.CHECKER_RADIUS = 25;
+    window.BAR_WIDTH = 50;
+    window.BEAR_OFF_WIDTH = 80;
     
     // Enable debug mode
-    var debugMode = true;
+    window.debugMode = true;
     
     // Debug logger function
-    function debugLog(message, data) {
-        if (!debugMode) return;
+    window.debugLog = function(message, data) {
+        if (!window.debugMode) return;
         
         if (data) {
             console.log("[DEBUG] " + message, data);
@@ -224,14 +234,9 @@
     <script src="game-board.js"></script>
     <script src="game-logic.js"></script>
     <script src="backgammon.js"></script>
-    <script src="fix-loops.js"></script>
     
     <!-- Main Game Controller -->
     <script>
-
-
-
-        
         // Parse URL parameters
         function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
@@ -501,138 +506,94 @@
                 }
             }
         }
-        
-        // Backup rollDice function in case it's missing from game-logic.js
-        function rollDiceBackup() {
-            debugLog("Rolling dice (backup function)...");
-            
-            if (diceRolled) {
-                debugLog("Dice already rolled, ignoring");
-                return;
-            }
-            if (whiteBearOff.length === 15 || blackBearOff.length === 15) {
-                debugLog("Game already won, ignoring dice roll");
-                return;
-            }
-            if (!canPlayerMove()) {
-                debugLog("Not your turn, ignoring dice roll");
-                return;
-            }
-            
-            debugLog("Rolling dice for player:", currentPlayer);
-            
-            const die1 = Math.floor(Math.random() * 6) + 1;
-            const die2 = Math.floor(Math.random() * 6) + 1;
-            
-            if (die1 === die2) {
-                // For doubles, we get 4 moves
-                dice = [die1, die1, die1, die1];
-            } else {
-                dice = [die1, die2];
-            }
-            
-            diceRolled = true;
-            
-            // Update the dice display in UI
-            updateDiceDisplay();
-            
-            gameStatus = currentPlayer === 'player1' ? 
-                player1Name + " rolled " + die1 + " and " + die2 + "!" :
-                player2Name + " rolled " + die1 + " and " + die2 + "!";
-            
-            updateGameStatus();
-            
-            // Save game state after rolling
-            if (typeof saveGameState === 'function') {
-                saveGameState();
-            }
-        }
-        
-        // Update UI displays (backup implementations)
+
+        // Update UI displays
         function updatePlayerInfo() {
-            if (!document.getElementById('player1-name') || 
-                !document.getElementById('player2-name')) {
-                return;
+            try {
+                // Update player info
+                const player1Bar = document.getElementById('player1-bar');
+                const player1Off = document.getElementById('player1-off');
+                const player2Bar = document.getElementById('player2-bar');
+                const player2Off = document.getElementById('player2-off');
+                const player1Card = document.getElementById('player1-card');
+                const player2Card = document.getElementById('player2-card');
+                
+                // Update bar and off counts
+                if (player1Bar) player1Bar.textContent = whiteBar ? whiteBar.length : 0;
+                if (player1Off) player1Off.textContent = whiteBearOff ? whiteBearOff.length : 0;
+                if (player2Bar) player2Bar.textContent = blackBar ? blackBar.length : 0;
+                if (player2Off) player2Off.textContent = blackBearOff ? blackBearOff.length : 0;
+                
+                // Highlight active player
+                if (player1Card && player2Card) {
+                    if (currentPlayer === 'player1') {
+                        player1Card.classList.add('active');
+                        player2Card.classList.remove('active');
+                    } else {
+                        player1Card.classList.remove('active');
+                        player2Card.classList.add('active');
+                    }
+                }
+                
+                // Update roll button state
+                const rollButton = document.getElementById('roll-button');
+                if (rollButton) {
+                    rollButton.disabled = 
+                        typeof diceRolled !== 'undefined' ? diceRolled || !canPlayerMove() : true;
+                }
+            } catch (error) {
+                console.error("Error in updatePlayerInfo:", error);
             }
-            
-            // Update player name displays
-            document.getElementById('player1-name').textContent = player1Name;
-            document.getElementById('player2-name').textContent = player2Name;
-            
-            // Update bar and off counts
-            if (typeof whiteBar !== 'undefined') {
-                document.getElementById('player1-bar').textContent = whiteBar.length;
-                document.getElementById('player1-off').textContent = whiteBearOff.length;
-                document.getElementById('player2-bar').textContent = blackBar.length;
-                document.getElementById('player2-off').textContent = blackBearOff.length;
-            }
-            
-            // Highlight active player
-            if (currentPlayer === 'player1') {
-                document.getElementById('player1-card').classList.add('active');
-                document.getElementById('player2-card').classList.remove('active');
-            } else {
-                document.getElementById('player1-card').classList.remove('active');
-                document.getElementById('player2-card').classList.add('active');
-            }
-            
-            // Enable/disable roll button based on whose turn it is
-            document.getElementById('roll-button').disabled = 
-                typeof diceRolled !== 'undefined' ? diceRolled || !canPlayerMove() : true;
         }
         
         function updateDiceDisplay() {
-            const dice1El = document.getElementById('dice1');
-            const dice2El = document.getElementById('dice2');
-            
-            if (!dice1El || !dice2El) return;
-            
-            if (typeof dice !== 'undefined' && dice.length >= 1) {
-                dice1El.innerText = dice[0];
-            } else {
-                dice1El.innerText = '-';
-            }
-            
-            if (typeof dice !== 'undefined' && dice.length >= 2) {
-                dice2El.innerText = dice[1];
-            } else {
-                dice2El.innerText = '-';
-            }
-            
-            // Disable roll button if dice are already rolled
-            const rollButton = document.getElementById('roll-button');
-            if (rollButton) {
-                rollButton.disabled = 
-                    typeof diceRolled !== 'undefined' ? diceRolled || !canPlayerMove() : true;
+            try {
+                const dice1El = document.getElementById('dice1');
+                const dice2El = document.getElementById('dice2');
+                
+                if (!dice1El || !dice2El) return;
+                
+                if (typeof dice !== 'undefined' && dice.length >= 1) {
+                    dice1El.innerText = dice[0];
+                } else {
+                    dice1El.innerText = '-';
+                }
+                
+                if (typeof dice !== 'undefined' && dice.length >= 2) {
+                    dice2El.innerText = dice[1];
+                } else {
+                    dice2El.innerText = '-';
+                }
+                
+                // Disable roll button if dice are already rolled
+                const rollButton = document.getElementById('roll-button');
+                if (rollButton) {
+                    rollButton.disabled = 
+                        typeof diceRolled !== 'undefined' ? diceRolled || !canPlayerMove() : true;
+                }
+            } catch (error) {
+                console.error("Error in updateDiceDisplay:", error);
             }
         }
         
         function updateGameStatus() {
-            const gameStatusEl = document.getElementById('game-status');
-            if (!gameStatusEl) return;
-            
-            gameStatusEl.innerText = gameStatus || "Waiting for players...";
-            
-            // Special styling for win messages
-            if (gameStatus && gameStatus.includes("wins")) {
-                gameStatusEl.style.color = '#ff6600';
-                gameStatusEl.style.fontWeight = 'bold';
-            } else {
-                gameStatusEl.style.color = '';
-                gameStatusEl.style.fontWeight = '';
+            try {
+                const gameStatusEl = document.getElementById('game-status');
+                if (!gameStatusEl) return;
+                
+                gameStatusEl.innerText = gameStatus || "Waiting for players...";
+                
+                // Special styling for win messages
+                if (gameStatus && gameStatus.includes("wins")) {
+                    gameStatusEl.style.color = '#ff6600';
+                    gameStatusEl.style.fontWeight = 'bold';
+                } else {
+                    gameStatusEl.style.color = '';
+                    gameStatusEl.style.fontWeight = '';
+                }
+            } catch (error) {
+                console.error("Error in updateGameStatus:", error);
             }
-        }
-        
-        // Backup function to check if player can move
-        function canPlayerMove() {
-            debugLog("Can player move check:", { playerRole: playerRole, currentPlayer: currentPlayer });
-            
-            if (typeof playerRole === 'undefined') return false;
-            if (playerRole === "spectator") return false;
-            if (playerRole === "player1" && currentPlayer === "player1") return true;
-            if (playerRole === "player2" && currentPlayer === "player2") return true;
-            
-            return false;
         }
         
         // Debug button handler
@@ -653,7 +614,8 @@
                     <strong>Current Player:</strong> ${currentPlayer}<br>
                     <strong>Dice:</strong> ${JSON.stringify(dice)}<br>
                     <strong>Dice Rolled:</strong> ${diceRolled}<br>
-                    <strong>Can Move:</strong> ${canPlayerMove()}<br>
+                    <strong>Can Move:</strong> ${canPlayerMove ? canPlayerMove() : "unknown"}<br>
+                    <strong>Board Length:</strong> ${board ? board.length : "no board"}<br>
                 `;
                 
                 debugInfo.style.display = 'block';
@@ -671,29 +633,25 @@
                 console.log("currentPlayer:", currentPlayer);
                 console.log("dice:", dice);
                 console.log("diceRolled:", diceRolled);
-                console.log("Can player move:", canPlayerMove());
                 console.log("board:", board);
-            }
-        });
-        
-        // Ensure the roll button calls the rollDice function
-        window.addEventListener('DOMContentLoaded', function() {
-            const rollButton = document.getElementById('roll-button');
-            if (rollButton) {
-                // Direct roll button handler
-                rollButton.addEventListener('click', function() {
-                    debugLog("Roll button clicked directly");
-                    
-                    // Call the rollDice function if it exists
-                    if (typeof window.rollDice === 'function') {
-                        window.rollDice();
-                    } else {
-                        // Use backup implementation
-                        rollDiceBackup();
-                    }
-                });
                 
-                debugLog("Roll button event listener added");
+                // Check if board has checkers
+                let hasCheckers = false;
+                if (board && Array.isArray(board)) {
+                    for (let i = 0; i < board.length; i++) {
+                        if (board[i] && board[i].length > 0) {
+                            hasCheckers = true;
+                            break;
+                        }
+                    }
+                }
+                console.log("Board has checkers:", hasCheckers);
+                
+                // If board is empty, force initialization
+                if (!hasCheckers && typeof initializeBoard === 'function') {
+                    console.log("Board is empty, initializing...");
+                    initializeBoard();
+                }
             }
         });
         
@@ -702,163 +660,235 @@
             debugLog("Window loaded, initializing game...");
             initFromUrl();
         };
-
-
-
-
         
+        // Make global functions available to other scripts
+        window.updatePlayerInfo = updatePlayerInfo;
+        window.updateDiceDisplay = updateDiceDisplay;
+        window.updateGameStatus = updateGameStatus;
+        window.checkAndStartGame = checkAndStartGame;
     </script>
 
-
-<!-- Add this script right before the closing </body> tag in game.html -->
-<script>
-window.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM loaded, checking board state");
-    
-    // Force board initialization if board is empty
-    setTimeout(function() {
-        if (!board || board.length === 0 || !board.some(point => point && point.length > 0)) {
-            console.log("Board is empty, forcing initialization");
-            initializeBoard();
-            
-            // Log the board after initialization
-            console.log("Board after forced initialization:", board);
-            
-            // Save the state if you're player 1
-            if (playerRole === "player1") {
-                console.log("Saving initialized state to Firebase");
-                setTimeout(() => {
-                    if (typeof saveGameState === 'function') {
-                        saveGameState();
-                    }
-                }, 1000);
-            }
-        } else {
-            console.log("Board is already initialized:", board);
-        }
-    }, 2000); // Wait 2 seconds to ensure all other scripts have loaded
-});
-</script>
-
-
+    <!-- Board recovery script to ensure the board is always initialized -->
     <script>
-// Board recovery script
-(function() {
-    // Keep a local backup of the last valid board state
-    let boardBackup = null;
-    let backupTimestamp = 0;
-    
-    // Function to backup current board state
-    function backupBoardState() {
-        if (board && Array.isArray(board) && board.length === 24) {
-            // Deep clone the board to avoid reference issues
-            const clone = [];
-            for (let i = 0; i < board.length; i++) {
-                if (Array.isArray(board[i])) {
-                    clone[i] = [];
-                    for (let j = 0; j < board[i].length; j++) {
-                        if (board[i][j] && board[i][j].color) {
-                            clone[i][j] = { color: board[i][j].color };
+    // Board recovery script
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Board initialization check running");
+        
+        // Wait for everything to load
+        setTimeout(function() {
+            // Define function to check if board has checkers
+            function hasPieces() {
+                if (!window.board || !Array.isArray(window.board)) return false;
+                
+                for (let i = 0; i < window.board.length; i++) {
+                    if (Array.isArray(window.board[i]) && window.board[i].length > 0) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            
+            // Keep a local backup of the last valid board state
+            let boardBackup = null;
+            
+            // Function to backup current board state
+            function backupBoardState() {
+                if (window.board && Array.isArray(window.board) && hasPieces()) {
+                    // Deep clone the board to avoid reference issues
+                    const clone = [];
+                    for (let i = 0; i < window.board.length; i++) {
+                        if (Array.isArray(window.board[i])) {
+                            clone[i] = [];
+                            for (let j = 0; j < window.board[i].length; j++) {
+                                if (window.board[i][j] && window.board[i][j].color) {
+                                    clone[i][j] = { color: window.board[i][j].color };
+                                }
+                            }
+                        } else {
+                            clone[i] = [];
                         }
+                    }
+                    
+                    boardBackup = clone;
+                    console.log("Board state backed up successfully");
+                }
+            }
+            
+            // Function to restore board from backup
+            function restoreBoardFromBackup() {
+                if (boardBackup && Array.isArray(boardBackup)) {
+                    console.log("Restoring board from backup");
+                    
+                    // Ensure board exists and is an array
+                    if (!window.board || !Array.isArray(window.board)) {
+                        window.board = [];
+                        for (let i = 0; i < 24; i++) {
+                            window.board[i] = [];
+                        }
+                    }
+                    
+                    // Copy from backup to board
+                    for (let i = 0; i < boardBackup.length; i++) {
+                        if (!window.board[i]) window.board[i] = [];
+                        
+                        if (Array.isArray(boardBackup[i])) {
+                            // Clear current points
+                            window.board[i] = [];
+                            
+                            // Copy from backup
+                            for (let j = 0; j < boardBackup[i].length; j++) {
+                                if (boardBackup[i][j] && boardBackup[i][j].color) {
+                                    window.board[i].push({ color: boardBackup[i][j].color });
+                                }
+                            }
+                        }
+                    }
+                    
+                    console.log("Board restored from backup");
+                    
+                    // Save the restored board to Firebase
+                    if (typeof window.saveGameState === 'function') {
+                        setTimeout(function() {
+                            window.saveGameState();
+                        }, 1000);
+                    }
+                    
+                    return true;
+                }
+                return false;
+            }
+            
+            // If board is empty or invalid, try to restore or initialize it
+            if (!hasPieces()) {
+                console.log("Board is empty, attempting to restore...");
+                
+                // Try to restore from backup first
+                if (!restoreBoardFromBackup() && typeof window.initializeBoard === 'function') {
+                    // If no backup, initialize a new board
+                    console.log("Initializing new board...");
+                    window.initializeBoard();
+                    
+                    // Save to Firebase if we're player 1
+                    if (window.playerRole === "player1" && typeof window.saveGameState === 'function') {
+                        setTimeout(function() {
+                            window.saveGameState();
+                            console.log("Initialized board saved to Firebase");
+                        }, 1000);
+                    }
+                }
+            } else {
+                // Board has pieces, create a backup
+                backupBoardState();
+            }
+            
+            // Periodically check the board
+            setInterval(function() {
+                if (!hasPieces()) {
+                    console.log("Periodic check found empty board, attempting to restore...");
+                    
+                    // Try to restore from backup first
+                    if (!restoreBoardFromBackup() && typeof window.initializeBoard === 'function') {
+                        // If no backup, initialize a new board
+                        console.log("Initializing new board...");
+                        window.initializeBoard();
                     }
                 } else {
-                    clone[i] = [];
+                    // Board has pieces, create a backup
+                    backupBoardState();
                 }
-            }
+            }, 5000); // Check every 5 seconds
             
-            boardBackup = clone;
-            backupTimestamp = Date.now();
-            console.log("Board state backed up successfully");
-        }
-    }
-    
-    // Function to restore board from backup
-    function restoreBoardFromBackup() {
-        if (boardBackup && Array.isArray(boardBackup) && boardBackup.length === 24) {
-            console.log("Restoring board from backup");
-            
-            // Ensure board exists and is an array
-            if (!board || !Array.isArray(board) || board.length !== 24) {
-                board = [];
-                for (let i = 0; i < 24; i++) {
-                    board[i] = [];
-                }
-            }
-            
-            // Copy from backup to board
-            for (let i = 0; i < 24; i++) {
-                if (!board[i]) board[i] = [];
+            // Add hook to Firebase update handling
+            if (window.processFirebaseUpdate && !window.originalProcessFirebaseUpdate) {
+                console.log("Adding Firebase update hook for board protection");
                 
-                if (Array.isArray(boardBackup[i])) {
-                    // Clear current points
-                    board[i] = [];
+                window.originalProcessFirebaseUpdate = window.processFirebaseUpdate;
+                window.processFirebaseUpdate = function(gameData) {
+                    // Backup the board before update
+                    backupBoardState();
                     
-                    // Copy from backup
-                    for (let j = 0; j < boardBackup[i].length; j++) {
-                        if (boardBackup[i][j] && boardBackup[i][j].color) {
-                            board[i].push({ color: boardBackup[i][j].color });
+                    // Call original function
+                    window.originalProcessFirebaseUpdate(gameData);
+                    
+                    // Check if board is still valid after update
+                    setTimeout(function() {
+                        if (!hasPieces()) {
+                            console.log("Board became empty after Firebase update, restoring...");
+                            restoreBoardFromBackup();
                         }
-                    }
-                }
+                    }, 500);
+                };
             }
-            
-            console.log("Board restored from backup");
-            
-            // Save the restored board to Firebase
-            if (typeof saveGameState === 'function') {
-                setTimeout(function() {
-                    saveGameState();
-                }, 1000);
-            }
-        } else {
-            console.log("No valid board backup available, initializing new board");
-            initializeBoard();
-        }
-    }
+        }, 3000); // Allow 3 seconds for everything to initialize
+    });
+    </script>
     
-    // Check board state periodically (every 5 seconds)
-    setInterval(function() {
-        // Check if board is in a valid state
-        const isValidBoard = board && Array.isArray(board) && board.length === 24 &&
-            board.some(point => Array.isArray(point) && point.length > 0);
+    <!-- Performance improvements to prevent infinite loops -->
+    <script>
+    // Performance and loop prevention script
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("Performance improvements loading...");
         
-        if (isValidBoard) {
-            // Board is valid, create a backup
-            backupBoardState();
-        } else {
-            // Board is invalid, restore from backup
-            console.log("Board is invalid, attempting to restore");
-            restoreBoardFromBackup();
-        }
-    }, 5000);
-    
-    // Intercept processFirebaseUpdate to check board validity
-    if (typeof window.processFirebaseUpdate === 'function') {
-        const originalProcessUpdate = window.processFirebaseUpdate;
+        // Variables for throttling
+        const THROTTLE_INTERVAL = 2000; // 2 seconds between saves
+        let lastSaveTime = 0;
         
-        window.processFirebaseUpdate = function(gameData) {
-            // Backup current board before updating
-            backupBoardState();
-            
-            // Call original function
-            originalProcessUpdate(gameData);
-            
-            // Verify board state after update
+        // Limit framerate for p5.js
+        if (typeof frameRate === 'function') {
             setTimeout(function() {
-                const isValidBoard = board && Array.isArray(board) && board.length === 24 &&
-                    board.some(point => Array.isArray(point) && point.length > 0);
-                
-                if (!isValidBoard) {
-                    console.log("Board became invalid after update, restoring");
-                    restoreBoardFromBackup();
+                try {
+                    frameRate(30); // Limit to 30 FPS
+                    console.log("Frame rate limited to 30 FPS");
+                } catch (e) {
+                    console.warn("Could not limit framerate:", e);
                 }
-            }, 500);
-        };
-    }
-    
-    console.log("Board recovery system installed");
-})();
-</script>
-    
+            }, 1000);
+        }
+        
+        // Override p5.js draw function to prevent excessive CPU usage
+        if (typeof window.draw === 'function' && !window.originalDraw) {
+            console.log("Adding draw function throttling");
+            
+            window.originalDraw = window.draw;
+            
+            let lastDrawTime = 0;
+            const FRAME_LIMIT = 1000 / 30; // 30 FPS
+            
+            window.draw = function() {
+                const now = performance.now();
+                if (now - lastDrawTime < FRAME_LIMIT) {
+                    return; // Skip this frame
+                }
+                lastDrawTime = now;
+                
+                try {
+                    window.originalDraw();
+                } catch (e) {
+                    console.error("Error in draw function:", e);
+                }
+            };
+        }
+        
+        // Throttle saveGameState to prevent excessive Firebase updates
+        if (typeof window.saveGameState === 'function' && !window.originalSaveGameState) {
+            console.log("Adding saveGameState throttling");
+            
+            window.originalSaveGameState = window.saveGameState;
+            
+            window.saveGameState = function() {
+                const now = Date.now();
+                if (now - lastSaveTime < THROTTLE_INTERVAL) {
+                    console.log("Throttling saveGameState call");
+                    return;
+                }
+                
+                lastSaveTime = now;
+                window.originalSaveGameState();
+            };
+        }
+        
+        console.log("Performance improvements loaded");
+    });
+    </script>
 </body>
 </html>
